@@ -37,9 +37,11 @@ export function setupIpcHandlers(): void {
         password: config.password,
       });
 
-      const result = await adapter.testConnection();
-      await adapter.close();
-      return result;
+      try {
+        return await adapter.testConnection();
+      } finally {
+        await adapter.close();
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: message };
@@ -101,6 +103,12 @@ export function setupIpcHandlers(): void {
 
       updateConnection(id, updateData);
 
+      if (adapterCache.has(id)) {
+        const cached = adapterCache.get(id);
+        await cached.close();
+        adapterCache.delete(id);
+      }
+
       const updated = getConnection(id)!;
       return rowToDto(updated);
     } catch (error) {
@@ -145,6 +153,7 @@ export function setupIpcHandlers(): void {
 
       return await adapter.getSchema();
     } catch (error) {
+      adapterCache.delete(connectionId);
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to fetch schema: ${message}`);
     }
