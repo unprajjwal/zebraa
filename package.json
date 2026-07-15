@@ -1,0 +1,20 @@
+{
+  "name": "zebraa",
+  "version": "0.0.1",
+  "description": "AI-assisted database explorer. Desktop first.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm run -r --filter='./apps/desktop' dev",
+    "build": "pnpm run -r build",
+    "prepare": "pnpm run -r build",
+    "lint": "echo 'Linting disabled for now'"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

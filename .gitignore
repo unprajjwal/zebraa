@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+pnpm-lock.yaml
+out/
