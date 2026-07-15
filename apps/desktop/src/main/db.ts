@@ -119,6 +119,10 @@ export function updateConnection(id: string, updates: Partial<Omit<ConnectionRow
     setClauses.push('name = ?');
     values.push(updates.name);
   }
+  if (updates.type !== undefined) {
+    setClauses.push('type = ?');
+    values.push(updates.type);
+  }
   if (updates.host !== undefined) {
     setClauses.push('host = ?');
     values.push(updates.host);
