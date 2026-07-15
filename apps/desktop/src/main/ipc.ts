@@ -1,6 +1,6 @@
 import { ipcMain, safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
-import { createAdapter, type ConnectionDTO, type SchemaInfo } from '@zebraa/core';
+import { createAdapter, type ConnectionDTO } from '@zebraa/core';
 import { listConnections, getConnection, createConnection, updateConnection, deleteConnection, type ConnectionRow } from './db.js';
 
 const adapterCache = new Map<string, any>();

@@ -35,7 +35,7 @@ function runMigrations(): void {
     );
   `);
 
-  const migrationsDir = path.join(import.meta.url.replace('file://', ''), '..', 'migrations');
+  const migrationsDir = path.join(__dirname, 'migrations');
   const migrationFiles = fs
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))

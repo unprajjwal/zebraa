@@ -2,7 +2,6 @@
   "name": "zebraa-desktop",
   "version": "0.0.1",
   "description": "Zebraa desktop app",
-  "type": "module",
   "main": "dist/main/index.js",
   "homepage": "./",
   "scripts": {

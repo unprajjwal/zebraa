@@ -1,11 +1,7 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { initializeDatabase, closeDatabase } from './db.js';
 import { setupIpcHandlers } from './ipc.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 

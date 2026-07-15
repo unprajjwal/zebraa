@@ -1,15 +1,13 @@
 import { Pool, PoolClient } from 'pg';
-import {
-  DatabaseAdapter,
+import { DatabaseAdapter } from './db-adapter.js';
+import type {
   ConnectionConfig,
   SchemaInfo,
   QueryOptions,
   RowSet,
   TableStats,
   TableInfo,
-  ColumnInfo,
-  ForeignKeyInfo,
-} from './index.js';
+} from './types/index.js';
 
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
