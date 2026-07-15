@@ -18,6 +18,7 @@ export default function ConnectionForm({ onSubmit }: Props) {
     setTesting(true);
     try {
       const result = await window.ipc.connections.test({
+        name,
         type: 'postgres',
         host,
         port: parseInt(port, 10),
