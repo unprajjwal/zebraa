@@ -1,0 +1,20 @@
+appId: com.zebraa.app
+productName: Zebraa
+files:
+  - dist/main/**/*
+  - dist/renderer/**/*
+directories:
+  buildResources: assets
+win:
+  target:
+    - nsis
+    - portable
+mac:
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+linux:
+  target:
+    - AppImage
+    - deb
