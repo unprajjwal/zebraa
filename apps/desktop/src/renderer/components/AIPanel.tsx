@@ -2,17 +2,21 @@ import React from 'react';
 
 export default function AIPanel() {
   return (
-    <div>
-      <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 'bold' }}>AI Assistant</h2>
-      <div style={{ color: '#999', fontSize: '12px', lineHeight: '1.6' }}>
-        <p>AI features coming in phase 2.</p>
-        <p>Will include:</p>
-        <ul style={{ paddingLeft: '16px', margin: '8px 0' }}>
+    <>
+      <div className="aipanel__head">
+        <span className="aipanel__spark" aria-hidden="true">
+          ✦
+        </span>
+        <span className="aipanel__title">AI Assistant</span>
+      </div>
+      <div className="aipanel__body">
+        <p className="aipanel__note">Ask questions about this database in plain English. Coming in phase 2:</p>
+        <ul className="aipanel__list">
           <li>Schema summarization</li>
-          <li>Natural language SQL generation</li>
+          <li>Natural language → SQL generation</li>
           <li>Query result analysis</li>
         </ul>
       </div>
-    </div>
+    </>
   );
 }

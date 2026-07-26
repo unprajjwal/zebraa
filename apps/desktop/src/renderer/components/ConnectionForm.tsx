@@ -1,25 +1,85 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import type { AdapterType } from '@zebraa/core';
 
 interface Props {
+  initialType?: AdapterType;
+  onBack?: () => void;
   onSubmit: (config: any) => Promise<void>;
+  onCancel: () => void;
 }
 
-export default function ConnectionForm({ onSubmit }: Props) {
+function getDefaultPort(type: AdapterType): string {
+  switch (type) {
+    case 'postgres': return '5432';
+    case 'mysql': return '3306';
+    case 'sqlite': return '0';
+    case 'mariadb': return '3306';
+    case 'mssql': return '1433';
+    case 'mongodb': return '27017';
+    case 'redis': return '6379';
+    case 'clickhouse': return '8123';
+    default: return '5432';
+  }
+}
+
+function getDefaultUsername(type: AdapterType): string {
+  switch (type) {
+    case 'postgres': return 'postgres';
+    case 'mysql': return 'root';
+    case 'sqlite': return '';
+    case 'mariadb': return 'root';
+    case 'mssql': return 'sa';
+    case 'mongodb': return '';
+    case 'redis': return '';
+    case 'clickhouse': return 'default';
+    default: return 'postgres';
+  }
+}
+
+function getTypeLabel(type: AdapterType): string {
+  switch (type) {
+    case 'postgres': return 'PostgreSQL';
+    case 'mysql': return 'MySQL';
+    case 'sqlite': return 'SQLite';
+    case 'mariadb': return 'MariaDB';
+    case 'mssql': return 'SQL Server';
+    case 'mongodb': return 'MongoDB';
+    case 'redis': return 'Redis';
+    case 'clickhouse': return 'ClickHouse';
+    default: return type;
+  }
+}
+
+export default function ConnectionForm({ initialType = 'postgres', onBack, onSubmit, onCancel }: Props) {
   const [name, setName] = useState('');
+  const [type, setType] = useState<AdapterType>(initialType);
   const [host, setHost] = useState('localhost');
-  const [port, setPort] = useState('5432');
+  const [port, setPort] = useState(getDefaultPort(initialType));
   const [database, setDatabase] = useState('');
-  const [username, setUsername] = useState('postgres');
+  const [username, setUsername] = useState(getDefaultUsername(initialType));
   const [password, setPassword] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  useEffect(() => {
+    setType(initialType);
+    setPort(getDefaultPort(initialType));
+    setUsername(getDefaultUsername(initialType));
+  }, [initialType]);
+
+  function handleTypeChange(newType: AdapterType) {
+    setType(newType);
+    setTestResult(null);
+    setPort(getDefaultPort(newType));
+    setUsername(getDefaultUsername(newType));
+  }
 
   async function handleTest() {
     setTesting(true);
     try {
       const result = await window.ipc.connections.test({
         name,
-        type: 'postgres',
+        type,
         host,
         port: parseInt(port, 10),
         database,
@@ -43,7 +103,7 @@ export default function ConnectionForm({ onSubmit }: Props) {
     try {
       await onSubmit({
         name,
-        type: 'postgres',
+        type,
         host,
         port: parseInt(port, 10),
         database,
@@ -55,109 +115,132 @@ export default function ConnectionForm({ onSubmit }: Props) {
     }
   }
 
-  const inputStyle = { width: '100%', padding: '6px', marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' };
-
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="text"
-        placeholder="Connection name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        style={inputStyle}
-      />
-      <input
-        type="text"
-        placeholder="Host"
-        value={host}
-        onChange={(e) => setHost(e.target.value)}
-        required
-        style={inputStyle}
-      />
-      <input
-        type="number"
-        placeholder="Port"
-        value={port}
-        onChange={(e) => setPort(e.target.value)}
-        required
-        style={inputStyle}
-      />
-      <input
-        type="text"
-        placeholder="Database"
-        value={database}
-        onChange={(e) => setDatabase(e.target.value)}
-        required
-        style={inputStyle}
-      />
-      <input
-        type="text"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        required
-        style={inputStyle}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        style={inputStyle}
-      />
-
-      <button
-        type="button"
-        onClick={handleTest}
-        disabled={testing}
-        style={{
-          width: '100%',
-          padding: '6px',
-          marginBottom: '8px',
-          backgroundColor: '#6c757d',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: testing ? 'wait' : 'pointer',
-          fontSize: '12px',
-        }}
-      >
-        {testing ? 'Testing...' : 'Test Connection'}
-      </button>
-
-      {testResult && (
-        <div
-          style={{
-            padding: '8px',
-            marginBottom: '8px',
-            borderRadius: '4px',
-            backgroundColor: testResult.ok ? '#d4edda' : '#f8d7da',
-            color: testResult.ok ? '#155724' : '#721c24',
-            fontSize: '12px',
-          }}
-        >
-          {testResult.ok ? 'Connection successful!' : `Error: ${testResult.error}`}
+    <form onSubmit={handleSubmit} className="conn-form">
+      {onBack && (
+        <div className="conn-form__header">
+          <button type="button" className="btn-back" onClick={onBack} title="Change database type">
+            ← Change DB
+          </button>
+          <span className={`conn-form__type-badge conn-form__type-badge--${type}`}>
+            {getTypeLabel(type)}
+          </span>
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={!testResult?.ok}
-        style={{
-          width: '100%',
-          padding: '6px',
-          backgroundColor: testResult?.ok ? '#28a745' : '#ccc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: testResult?.ok ? 'pointer' : 'not-allowed',
-          fontSize: '12px',
-        }}
+      <label className="form-label" htmlFor="conn-name">
+        Name
+      </label>
+      <input
+        id="conn-name"
+        className="field"
+        type="text"
+        placeholder="e.g. Local dev"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+      />
+
+      <label className="form-label" htmlFor="conn-type">
+        Database Type
+      </label>
+      <select
+        id="conn-type"
+        className="field"
+        value={type}
+        onChange={(e) => handleTypeChange(e.target.value as AdapterType)}
       >
-        Save Connection
+        <option value="postgres">PostgreSQL</option>
+        <option value="mysql">MySQL</option>
+        <option value="sqlite">SQLite</option>
+        <option value="mariadb">MariaDB</option>
+        <option value="mssql">SQL Server (MSSQL)</option>
+        <option value="mongodb">MongoDB</option>
+        <option value="redis">Redis</option>
+        <option value="clickhouse">ClickHouse</option>
+      </select>
+
+      <div className="field-row">
+        <div style={{ flex: 2 }}>
+          <label className="form-label" htmlFor="conn-host">
+            Host
+          </label>
+          <input
+            id="conn-host"
+            className="field"
+            type="text"
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            required
+          />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="form-label" htmlFor="conn-port">
+            Port
+          </label>
+          <input
+            id="conn-port"
+            className="field"
+            type="number"
+            value={port}
+            onChange={(e) => setPort(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      <label className="form-label" htmlFor="conn-database">
+        Database
+      </label>
+      <input
+        id="conn-database"
+        className="field"
+        type="text"
+        value={database}
+        onChange={(e) => setDatabase(e.target.value)}
+        required
+      />
+
+      <label className="form-label" htmlFor="conn-username">
+        Username
+      </label>
+      <input
+        id="conn-username"
+        className="field"
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+
+      <label className="form-label" htmlFor="conn-password">
+        Password
+      </label>
+      <input
+        id="conn-password"
+        className="field"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <button type="button" className="btn btn-ghost" onClick={handleTest} disabled={testing}>
+        {testing ? 'Testing…' : 'Test connection'}
       </button>
+
+      {testResult && (
+        <div className={testResult.ok ? 'callout callout-ok' : 'callout callout-error'} style={{ marginTop: 8 }}>
+          {testResult.ok ? 'Connection successful.' : `Error: ${testResult.error}`}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="submit" className={testResult?.ok ? 'btn btn-success' : 'btn btn-ghost'} disabled={!testResult?.ok}>
+          Save
+        </button>
+      </div>
     </form>
   );
 }

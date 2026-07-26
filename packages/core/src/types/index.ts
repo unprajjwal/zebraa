@@ -1,11 +1,21 @@
-export type AdapterType = 'postgres' | 'mysql';
+export type AdapterType =
+  | 'postgres'
+  | 'mysql'
+  | 'sqlite'
+  | 'mariadb'
+  | 'mssql'
+  | 'mongodb'
+  | 'redis'
+  | 'clickhouse';
 
 export interface ConnectionConfig {
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  password: string;
+  host?: string;
+  port?: number;
+  database?: string;
+  username?: string;
+  password?: string;
+  filepath?: string; // For SQLite
+  ssl?: boolean;
 }
 
 export interface SchemaInfo {
@@ -41,6 +51,7 @@ export interface RowSet {
 export interface QueryOptions {
   timeoutMs?: number;   // Default: 10000
   rowLimit?: number;    // Default: 1000
+  params?: unknown[];
 }
 
 export interface TableStats {

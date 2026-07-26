@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { SchemaInfo, TableInfo } from '@zebraa/core';
+import type { SchemaInfo } from '@zebraa/core';
 
 interface Props {
   connectionId: string;
@@ -31,55 +31,46 @@ export default function SchemaBrowser({ connectionId }: Props) {
     }
   }
 
-  if (loading) return <div style={{ padding: '16px', color: '#999' }}>Loading schema...</div>;
-  if (error) return <div style={{ padding: '16px', color: '#d32f2f' }}>Error: {error}</div>;
-  if (!schema) return <div style={{ padding: '16px', color: '#999' }}>No schema</div>;
+  if (loading) return <div className="empty-state">Loading schema…</div>;
+  if (error) return <div className="empty-state" style={{ color: 'var(--danger)' }}>Error: {error}</div>;
+  if (!schema) return <div className="empty-state">No schema</div>;
 
   return (
-    <div style={{ padding: '16px', overflow: 'auto' }}>
-      <h2 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 'bold' }}>Tables</h2>
+    <div className="schema">
+      <div className="schema__header">
+        <div className="schema__title">Tables</div>
+        <div className="schema__count">{schema.tables.length} total</div>
+      </div>
+
       {schema.tables.length === 0 ? (
-        <div style={{ color: '#999' }}>No tables found</div>
+        <div className="empty-state">No tables found</div>
       ) : (
-        schema.tables.map((table) => (
-          <div key={table.name} style={{ marginBottom: '12px' }}>
-            <div
-              onClick={() => setExpandedTable(expandedTable === table.name ? null : table.name)}
-              style={{
-                cursor: 'pointer',
-                padding: '8px',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '4px',
-                fontWeight: 'bold',
-                fontSize: '12px',
-                userSelect: 'none',
-              }}
-            >
-              {expandedTable === table.name ? '▼' : '▶'} {table.name}
-            </div>
-            {expandedTable === table.name && (
-              <div style={{ marginLeft: '12px', marginTop: '8px' }}>
-                {table.columns.map((col) => (
-                  <div
-                    key={col.name}
-                    style={{
-                      padding: '6px 8px',
-                      backgroundColor: '#fafafa',
-                      borderRadius: '3px',
-                      marginBottom: '4px',
-                      fontSize: '11px',
-                      borderLeft: '2px solid #007bff',
-                    }}
-                  >
-                    <strong>{col.name}</strong> {col.type}
-                    {!col.nullable && ' NOT NULL'}
-                    {col.default && ` DEFAULT ${col.default}`}
-                  </div>
-                ))}
+        schema.tables.map((table) => {
+          const open = expandedTable === table.name;
+          return (
+            <div key={table.name} className="table-card">
+              <div className="table-card__head" onClick={() => setExpandedTable(open ? null : table.name)}>
+                <span className={`table-card__caret${open ? ' open' : ''}`}>▶</span>
+                <span className="table-card__name">{table.name}</span>
+                <span className="table-card__colcount">{table.columns.length} cols</span>
               </div>
-            )}
-          </div>
-        ))
+              {open && (
+                <div>
+                  {table.columns.map((col) => (
+                    <div key={col.name} className="col-row">
+                      <span className="col-row__name">{col.name}</span>
+                      <span className="col-row__type">{col.type}</span>
+                      <span className="col-row__badge">
+                        {!col.nullable && 'NOT NULL'}
+                        {col.default && ` · DEFAULT ${col.default}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

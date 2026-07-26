@@ -14,7 +14,6 @@ const DEFAULT_ROW_LIMIT = 1000;
 
 export class PostgresAdapter extends DatabaseAdapter {
   private pool: Pool | null = null;
-  private client: PoolClient | null = null;
 
   constructor(config: ConnectionConfig) {
     super(config);
@@ -32,9 +31,12 @@ export class PostgresAdapter extends DatabaseAdapter {
       });
 
       const client = await tempPool.connect();
-      await client.query('SELECT 1');
-      client.release();
-      await tempPool.end();
+      try {
+        await client.query('SELECT 1');
+      } finally {
+        client.release();
+        await tempPool.end();
+      }
 
       return { ok: true };
     } catch (error) {
@@ -43,9 +45,33 @@ export class PostgresAdapter extends DatabaseAdapter {
     }
   }
 
-  async getSchema(): Promise<SchemaInfo> {
-    const client = await this.getOrCreateClient();
+  private getPool(): Pool {
+    if (!this.pool) {
+      this.pool = new Pool({
+        host: this.config.host,
+        port: this.config.port,
+        database: this.config.database,
+        user: this.config.username,
+        password: this.config.password,
+        connectionTimeoutMillis: 5000,
+      });
+    }
+    return this.pool;
+  }
+
+  private async withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+    const pool = this.getPool();
+    const client = await pool.connect();
     try {
+      return await fn(client);
+    } finally {
+      client.release();
+    }
+  }
+
+  async getSchema(): Promise<SchemaInfo> {
+    return this.withClient(async (client) => {
+      // 1. Fetch tables
       const tableQuery = `
         SELECT
           t.table_name,
@@ -57,6 +83,7 @@ export class PostgresAdapter extends DatabaseAdapter {
         LEFT JOIN information_schema.columns c
           ON t.table_schema = c.table_schema AND t.table_name = c.table_name
         WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
+          AND t.table_type = 'BASE TABLE'
         ORDER BY t.table_name, c.ordinal_position
       `;
 
@@ -76,37 +103,63 @@ export class PostgresAdapter extends DatabaseAdapter {
             name: row.column_name,
             type: row.data_type,
             nullable: row.is_nullable,
-            default: row.column_default,
+            default: row.column_default ?? undefined,
           });
         }
       }
 
-      // Fetch PKs and FKs
-      const constraintQuery = `
+      // 2. Fetch Primary Keys cleanly
+      const pkQuery = `
+        SELECT
+          kcu.table_name,
+          kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY kcu.table_name, kcu.ordinal_position
+      `;
+
+      const pkResult = await client.query(pkQuery);
+      for (const row of pkResult.rows) {
+        const table = tableMap.get(row.table_name);
+        if (table) {
+          if (!table.primaryKeys) table.primaryKeys = [];
+          if (!table.primaryKeys.includes(row.column_name)) {
+            table.primaryKeys.push(row.column_name);
+          }
+        }
+      }
+
+      // 3. Fetch Foreign Keys cleanly
+      const fkQuery = `
         SELECT
           kcu.table_name,
           kcu.column_name,
-          tc.constraint_type,
           ccu.table_name as foreign_table,
           ccu.column_name as foreign_column
-        FROM information_schema.key_column_usage kcu
-        JOIN information_schema.table_constraints tc
-          ON kcu.constraint_name = tc.constraint_name
-        LEFT JOIN information_schema.constraint_column_usage ccu
-          ON tc.constraint_name = ccu.constraint_name
-        WHERE kcu.table_schema NOT IN ('pg_catalog', 'information_schema')
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema NOT IN ('pg_catalog', 'information_schema')
       `;
 
-      const constraintResult = await client.query(constraintQuery);
-
-      for (const row of constraintResult.rows) {
+      const fkResult = await client.query(fkQuery);
+      for (const row of fkResult.rows) {
         const table = tableMap.get(row.table_name);
         if (table) {
-          if (row.constraint_type === 'PRIMARY KEY') {
-            if (!table.primaryKeys) table.primaryKeys = [];
-            table.primaryKeys.push(row.column_name);
-          } else if (row.constraint_type === 'FOREIGN KEY') {
-            if (!table.foreignKeys) table.foreignKeys = [];
+          if (!table.foreignKeys) table.foreignKeys = [];
+          const exists = table.foreignKeys.some(
+            (fk) =>
+              fk.column === row.column_name &&
+              fk.refTable === row.foreign_table &&
+              fk.refColumn === row.foreign_column
+          );
+          if (!exists) {
             table.foreignKeys.push({
               column: row.column_name,
               refTable: row.foreign_table,
@@ -117,116 +170,109 @@ export class PostgresAdapter extends DatabaseAdapter {
       }
 
       return { tables: Array.from(tableMap.values()) };
-    } finally {
-      if (client) client.release();
-    }
+    });
   }
 
   async getSampleRows(table: string, limit: number = 10): Promise<RowSet> {
-    const client = await this.getOrCreateClient();
-    try {
-      const query = `SELECT * FROM "${table}" LIMIT $1`;
+    return this.withClient(async (client) => {
+      const safeTable = `"${table.replace(/"/g, '""')}"`;
+      const query = `SELECT * FROM ${safeTable} LIMIT $1`;
       const result = await client.query(query, [limit]);
 
-      const columns = result.fields.map((f) => f.name);
-      const rows = result.rows.map((r) => Object.values(r));
-
-      return {
-        columns,
-        rows,
-        rowCount: result.rows.length,
-      };
-    } finally {
-      if (client) client.release();
-    }
-  }
-
-  async executeQuery(sql: string, opts?: QueryOptions): Promise<RowSet> {
-    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const rowLimit = opts?.rowLimit ?? DEFAULT_ROW_LIMIT;
-
-    const client = await this.getOrCreateClient();
-    try {
-      await client.query(`SET statement_timeout TO ${timeoutMs}`);
-
-      const result = await client.query(sql);
-
-      const columns = result.fields.map((f) => f.name);
-      let rows = result.rows.map((r) => Object.values(r));
-
-      if (rows.length > rowLimit) {
-        rows = rows.slice(0, rowLimit);
-      }
+      const columns = result.fields ? result.fields.map((f: { name: string }) => f.name) : [];
+      const rows = result.rows ? result.rows.map((r: Record<string, unknown>) => Object.values(r)) : [];
 
       return {
         columns,
         rows,
         rowCount: rows.length,
       };
-    } finally {
-      if (client) client.release();
-    }
+    });
+  }
+
+  async executeQuery(sql: string, opts?: QueryOptions): Promise<RowSet> {
+    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const rowLimit = opts?.rowLimit ?? DEFAULT_ROW_LIMIT;
+
+    return this.withClient(async (client) => {
+      await client.query(`SET statement_timeout TO ${timeoutMs}`);
+
+      const result = await client.query(sql, opts?.params);
+
+      // Handle multi-statement results if array returned, pick last
+      const queryResult = Array.isArray(result) ? result[result.length - 1] : result;
+
+      const isSelect = queryResult.command === 'SELECT';
+      const columns = queryResult.fields ? queryResult.fields.map((f: { name: string }) => f.name) : [];
+      let rows = queryResult.rows ? queryResult.rows.map((r: Record<string, unknown>) => Object.values(r)) : [];
+
+      if (isSelect && rows.length > rowLimit) {
+        rows = rows.slice(0, rowLimit);
+      }
+
+      const rowCount = isSelect ? rows.length : (queryResult.rowCount ?? rows.length);
+
+      return {
+        columns,
+        rows,
+        rowCount,
+      };
+    });
   }
 
   async explainQuery(sql: string): Promise<string> {
-    const client = await this.getOrCreateClient();
-    try {
+    return this.withClient(async (client) => {
       const result = await client.query(`EXPLAIN ${sql}`);
-      return result.rows.map((r) => Object.values(r).join(' ')).join('\n');
-    } finally {
-      if (client) client.release();
-    }
+      return result.rows.map((r: Record<string, unknown>) => Object.values(r).join(' ')).join('\n');
+    });
   }
 
   async getTableStats(table: string): Promise<TableStats> {
-    const client = await this.getOrCreateClient();
-    try {
-      const result = await client.query(`
+    return this.withClient(async (client) => {
+      const safeTable = table.replace(/'/g, "''");
+      const statResult = await client.query(
+        `
         SELECT
           n_live_tup as row_count,
-          pg_total_relation_size('${table}'::regclass) as size_bytes
+          pg_total_relation_size('${safeTable}'::regclass) as size_bytes
         FROM pg_stat_user_tables
         WHERE relname = $1
-      `, [table]);
+      `,
+        [table]
+      );
 
-      if (result.rows.length === 0) {
-        return { estimatedRows: 0, sizeBytes: 0 };
+      let estimatedRows = 0;
+      let sizeBytes = 0;
+
+      if (statResult.rows.length > 0) {
+        estimatedRows = parseInt(statResult.rows[0].row_count ?? '0', 10);
+        sizeBytes = parseInt(statResult.rows[0].size_bytes ?? '0', 10);
       }
 
-      const row = result.rows[0];
+      // If pg_stat_user_tables hasn't updated row count yet, fall back to exact COUNT(*)
+      if (estimatedRows === 0) {
+        try {
+          const safeIdentifier = `"${table.replace(/"/g, '""')}"`;
+          const countResult = await client.query(`SELECT COUNT(*) as count FROM ${safeIdentifier}`);
+          if (countResult.rows.length > 0) {
+            estimatedRows = parseInt(countResult.rows[0].count ?? '0', 10);
+          }
+        } catch {
+          // Ignore count failure if table does not exist
+        }
+      }
+
       return {
-        estimatedRows: row.row_count || 0,
-        sizeBytes: row.size_bytes || 0,
+        estimatedRows,
+        sizeBytes,
       };
-    } finally {
-      if (client) client.release();
-    }
+    });
   }
 
   async close(): Promise<void> {
     if (this.pool) {
       await this.pool.end();
       this.pool = null;
-      this.client = null;
     }
-  }
-
-  private async getOrCreateClient(): Promise<PoolClient> {
-    if (!this.pool) {
-      this.pool = new Pool({
-        host: this.config.host,
-        port: this.config.port,
-        database: this.config.database,
-        user: this.config.username,
-        password: this.config.password,
-        connectionTimeoutMillis: 5000,
-      });
-    }
-
-    if (!this.client) {
-      this.client = await this.pool.connect();
-    }
-
-    return this.client;
   }
 }

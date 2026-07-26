@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ConnectionDTO, SchemaInfo, QueryOptions, RowSet } from '@zebraa/core';
+import type { ConnectionDTO, SchemaInfo, QueryOptions, RowSet, TableStats, AdapterType } from '@zebraa/core';
 
 interface NewConnectionInput {
   name: string;
-  type?: 'postgres' | 'mysql';
+  type?: AdapterType;
   host: string;
   port: number;
   database: string;
@@ -24,6 +24,11 @@ export interface IpcApi {
   };
   query: {
     execute(connectionId: string, sql: string, opts?: QueryOptions): Promise<RowSet>;
+    explain(connectionId: string, sql: string): Promise<string>;
+  };
+  table: {
+    sample(connectionId: string, table: string, limit?: number): Promise<RowSet>;
+    stats(connectionId: string, table: string): Promise<TableStats>;
   };
 }
 
@@ -40,6 +45,11 @@ const ipc: IpcApi = {
   },
   query: {
     execute: (connectionId, sql, opts) => ipcRenderer.invoke('query:execute', connectionId, sql, opts),
+    explain: (connectionId, sql) => ipcRenderer.invoke('query:explain', connectionId, sql),
+  },
+  table: {
+    sample: (connectionId, table, limit) => ipcRenderer.invoke('table:sample', connectionId, table, limit),
+    stats: (connectionId, table) => ipcRenderer.invoke('table:stats', connectionId, table),
   },
 };
 

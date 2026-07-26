@@ -1,9 +1,9 @@
 import { ipcMain, safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
-import { createAdapter, type ConnectionDTO } from '@zebraa/core';
+import { createAdapter, type ConnectionDTO, type DBAdapter } from '@zebraa/core';
 import { listConnections, getConnection, createConnection, updateConnection, deleteConnection, type ConnectionRow } from './db.js';
 
-const adapterCache = new Map<string, any>();
+const adapterCache = new Map<string, DBAdapter>();
 
 function rowToDto(row: ConnectionRow): ConnectionDTO {
   return {
@@ -17,6 +17,26 @@ function rowToDto(row: ConnectionRow): ConnectionDTO {
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+async function getAdapterForConnection(connectionId: string): Promise<DBAdapter> {
+  let adapter = adapterCache.get(connectionId);
+  if (!adapter) {
+    const connection = getConnection(connectionId);
+    if (!connection) {
+      throw new Error(`Connection ${connectionId} not found`);
+    }
+    const password = safeStorage.decryptString(connection.secret_encrypted);
+    adapter = createAdapter(connection.type as any, {
+      host: connection.host,
+      port: connection.port,
+      database: connection.database,
+      username: connection.username,
+      password,
+    });
+    adapterCache.set(connectionId, adapter);
+  }
+  return adapter;
 }
 
 export function setupIpcHandlers(): void {
@@ -105,7 +125,7 @@ export function setupIpcHandlers(): void {
 
       if (adapterCache.has(id)) {
         const cached = adapterCache.get(id);
-        await cached.close();
+        await cached?.close();
         adapterCache.delete(id);
       }
 
@@ -122,7 +142,7 @@ export function setupIpcHandlers(): void {
       deleteConnection(id);
       if (adapterCache.has(id)) {
         const adapter = adapterCache.get(id);
-        await adapter.close();
+        await adapter?.close();
         adapterCache.delete(id);
       }
     } catch (error) {
@@ -133,24 +153,7 @@ export function setupIpcHandlers(): void {
   // schema:get
   ipcMain.handle('schema:get', async (_event, connectionId: string) => {
     try {
-      const connection = getConnection(connectionId);
-      if (!connection) {
-        throw new Error(`Connection ${connectionId} not found`);
-      }
-
-      let adapter = adapterCache.get(connectionId);
-      if (!adapter) {
-        const password = safeStorage.decryptString(connection.secret_encrypted);
-        adapter = createAdapter(connection.type as any, {
-          host: connection.host,
-          port: connection.port,
-          database: connection.database,
-          username: connection.username,
-          password,
-        });
-        adapterCache.set(connectionId, adapter);
-      }
-
+      const adapter = await getAdapterForConnection(connectionId);
       return await adapter.getSchema();
     } catch (error) {
       adapterCache.delete(connectionId);
@@ -159,8 +162,47 @@ export function setupIpcHandlers(): void {
     }
   });
 
-  // query:execute (stubbed for now)
+  // query:execute
   ipcMain.handle('query:execute', async (_event, connectionId: string, sql: string, opts) => {
-    throw new Error('Query execution not yet implemented (phase 2)');
+    try {
+      const adapter = await getAdapterForConnection(connectionId);
+      return await adapter.executeQuery(sql, opts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Query execution failed: ${message}`);
+    }
+  });
+
+  // query:explain
+  ipcMain.handle('query:explain', async (_event, connectionId: string, sql: string) => {
+    try {
+      const adapter = await getAdapterForConnection(connectionId);
+      return await adapter.explainQuery(sql);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Query explain failed: ${message}`);
+    }
+  });
+
+  // table:sample
+  ipcMain.handle('table:sample', async (_event, connectionId: string, table: string, limit?: number) => {
+    try {
+      const adapter = await getAdapterForConnection(connectionId);
+      return await adapter.getSampleRows(table, limit);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Fetch sample rows failed: ${message}`);
+    }
+  });
+
+  // table:stats
+  ipcMain.handle('table:stats', async (_event, connectionId: string, table: string) => {
+    try {
+      const adapter = await getAdapterForConnection(connectionId);
+      return await adapter.getTableStats(table);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Fetch table stats failed: ${message}`);
+    }
   });
 }

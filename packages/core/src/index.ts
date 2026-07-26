@@ -1,4 +1,10 @@
 export { createAdapter } from './registry.js';
 export type { AdapterType, ConnectionConfig, SchemaInfo, TableInfo, ColumnInfo, ForeignKeyInfo, RowSet, QueryOptions, TableStats, DBAdapter, NewConnectionInput, ConnectionDTO } from './types/index.js';
 export { PostgresAdapter } from './postgres-adapter.js';
+export { MySQLAdapter } from './mysql-adapter.js';
+export { MariaDBAdapter } from './mariadb-adapter.js';
+export { MSSQLAdapter } from './mssql-adapter.js';
+export { MongoDBAdapter } from './mongodb-adapter.js';
+export { RedisAdapter } from './redis-adapter.js';
+export { SQLiteAdapter } from './sqlite-adapter.js';
 export { DatabaseAdapter } from './db-adapter.js';
