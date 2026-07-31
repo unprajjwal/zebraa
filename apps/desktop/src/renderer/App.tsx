@@ -16,6 +16,15 @@ export default function App() {
   const [addStep, setAddStep] = useState<'select-type' | 'configure'>('select-type');
   const [selectedDbType, setSelectedDbType] = useState<AdapterType>('postgres');
 
+  // Left & Right panel resize & collapse state
+  const [leftWidth, setLeftWidth] = useState(264);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+
+  const [rightWidth, setRightWidth] = useState(320);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+
   useEffect(() => {
     loadConnections();
   }, []);
@@ -71,6 +80,50 @@ export default function App() {
     }
   }
 
+  function startLeftResize(e: React.MouseEvent) {
+    e.preventDefault();
+    setIsDraggingLeft(true);
+    const startX = e.clientX;
+    const startWidth = leftWidth;
+
+    function onMouseMove(moveEvent: MouseEvent) {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(180, Math.min(500, startWidth + delta));
+      setLeftWidth(newWidth);
+    }
+
+    function onMouseUp() {
+      setIsDraggingLeft(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  function startRightResize(e: React.MouseEvent) {
+    e.preventDefault();
+    setIsDraggingRight(true);
+    const startX = e.clientX;
+    const startWidth = rightWidth;
+
+    function onMouseMove(moveEvent: MouseEvent) {
+      const delta = startX - moveEvent.clientX;
+      const newWidth = Math.max(200, Math.min(600, startWidth + delta));
+      setRightWidth(newWidth);
+    }
+
+    function onMouseUp() {
+      setIsDraggingRight(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
   if (!entered) {
     return <WelcomeScreen onEnter={() => setEntered(true)} />;
   }
@@ -88,42 +141,83 @@ export default function App() {
       </div>
 
       <div className="app__body">
-        <div className="sidebar">
-          <div className="panel-heading">Connections</div>
-          <div className="sidebar__list">
-            <ConnectionsList
-              connections={connections}
-              selectedId={selectedConnectionId}
-              onSelect={setSelectedConnectionId}
-              onDelete={handleDeleteConnection}
-            />
+        {leftCollapsed ? (
+          <div
+            className="sidebar--collapsed"
+            onClick={() => setLeftCollapsed(false)}
+            title="Click to expand Left Panel"
+          >
+            <button
+              type="button"
+              className="panel-collapse-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLeftCollapsed(false);
+              }}
+              title="Expand Left Panel"
+            >
+              »
+            </button>
+            <span className="sidebar--collapsed__icon">⚡</span>
+            <div className="sidebar--collapsed__label">Connections</div>
           </div>
-          <div className="sidebar__footer">
-            {showAddForm ? (
-              addStep === 'select-type' ? (
-                <DatabaseTypeSelector
-                  selectedType={selectedDbType}
-                  onSelectType={(type) => {
-                    setSelectedDbType(type);
-                    setAddStep('configure');
-                  }}
-                  onCancel={handleCancelAdd}
-                />
-              ) : (
-                <ConnectionForm
-                  initialType={selectedDbType}
-                  onBack={() => setAddStep('select-type')}
-                  onSubmit={handleAddConnection}
-                  onCancel={handleCancelAdd}
-                />
-              )
-            ) : (
-              <button className="btn btn-primary" onClick={() => handleStartAdd()}>
-                + Add connection
+        ) : (
+          <div className="sidebar" style={{ width: `${leftWidth}px` }}>
+            <div className="panel-heading">
+              <span>Connections</span>
+              <button
+                type="button"
+                className="panel-collapse-btn"
+                onClick={() => setLeftCollapsed(true)}
+                title="Collapse Left Panel"
+              >
+                «
               </button>
-            )}
+            </div>
+            <div className="sidebar__list">
+              <ConnectionsList
+                connections={connections}
+                selectedId={selectedConnectionId}
+                onSelect={setSelectedConnectionId}
+                onDelete={handleDeleteConnection}
+              />
+            </div>
+            <div className="sidebar__footer">
+              {showAddForm ? (
+                addStep === 'select-type' ? (
+                  <DatabaseTypeSelector
+                    selectedType={selectedDbType}
+                    onSelectType={(type) => {
+                      setSelectedDbType(type);
+                      setAddStep('configure');
+                    }}
+                    onCancel={handleCancelAdd}
+                  />
+                ) : (
+                  <ConnectionForm
+                    initialType={selectedDbType}
+                    onBack={() => setAddStep('select-type')}
+                    onSubmit={handleAddConnection}
+                    onCancel={handleCancelAdd}
+                  />
+                )
+              ) : (
+                <button className="btn btn-primary" onClick={() => handleStartAdd()}>
+                  + Add connection
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {!leftCollapsed && (
+          <div
+            className={`resize-handle resize-handle--left ${isDraggingLeft ? 'dragging' : ''}`}
+            onMouseDown={startLeftResize}
+            onDoubleClick={() => setLeftWidth(264)}
+            title="Drag to resize Left Panel, double-click to reset"
+          />
+        )}
 
         <div className="center">
           {selectedConnectionId ? (
@@ -164,9 +258,42 @@ export default function App() {
           )}
         </div>
 
-        <div className="aipanel">
-          <AIPanel />
-        </div>
+        {!rightCollapsed && (
+          <div
+            className={`resize-handle resize-handle--right ${isDraggingRight ? 'dragging' : ''}`}
+            onMouseDown={startRightResize}
+            onDoubleClick={() => setRightWidth(320)}
+            title="Drag to resize Right Panel, double-click to reset"
+          />
+        )}
+
+        {rightCollapsed ? (
+          <div
+            className="aipanel--collapsed"
+            onClick={() => setRightCollapsed(false)}
+            title="Click to expand Right Panel"
+          >
+            <button
+              type="button"
+              className="panel-collapse-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setRightCollapsed(false);
+              }}
+              title="Expand Right Panel"
+            >
+              «
+            </button>
+            <span className="aipanel__spark" aria-hidden="true" style={{ width: 22, height: 22 }}>
+              ✦
+            </span>
+            <div className="aipanel--collapsed__label">AI Panel</div>
+          </div>
+        ) : (
+          <div className="aipanel" style={{ width: `${rightWidth}px` }}>
+            <AIPanel onCollapse={() => setRightCollapsed(true)} />
+          </div>
+        )}
       </div>
     </div>
   );

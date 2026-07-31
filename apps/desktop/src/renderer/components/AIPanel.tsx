@@ -1,6 +1,10 @@
 import React from 'react';
 
-export default function AIPanel() {
+interface AIPanelProps {
+  onCollapse?: () => void;
+}
+
+export default function AIPanel({ onCollapse }: AIPanelProps) {
   return (
     <>
       <div className="aipanel__head">
@@ -8,6 +12,17 @@ export default function AIPanel() {
           ✦
         </span>
         <span className="aipanel__title">AI Assistant</span>
+        {onCollapse && (
+          <button
+            type="button"
+            className="panel-collapse-btn"
+            onClick={onCollapse}
+            title="Collapse AI Panel"
+            style={{ marginLeft: 'auto' }}
+          >
+            »
+          </button>
+        )}
       </div>
       <div className="aipanel__body">
         <p className="aipanel__note">Ask questions about this database in plain English. Coming in phase 2:</p>
