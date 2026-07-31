@@ -1,6 +1,6 @@
 import { ipcMain, safeStorage } from 'electron';
 import { randomUUID } from 'crypto';
-import { createAdapter, type ConnectionDTO, type DBAdapter } from '@zebraa/core';
+import { createAdapter, validateConnectionConfig, type ConnectionDTO, type DBAdapter } from '@zebraa/core';
 import { listConnections, getConnection, createConnection, updateConnection, deleteConnection, type ConnectionRow } from './db.js';
 
 const adapterCache = new Map<string, DBAdapter>();
@@ -49,12 +49,19 @@ export function setupIpcHandlers(): void {
   // connections:test
   ipcMain.handle('connections:test', async (_event, config) => {
     try {
-      const adapter = createAdapter(config.type || 'postgres', {
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        username: config.username,
-        password: config.password,
+      const type = config?.type || 'postgres';
+      const validation = validateConnectionConfig(type, config);
+      if (!validation.valid) {
+        return { ok: false, error: validation.error };
+      }
+
+      const adapter = createAdapter(type, {
+        host: config?.host,
+        port: config?.port,
+        database: config?.database,
+        username: config?.username,
+        password: config?.password,
+        filepath: config?.filepath,
       });
 
       try {
@@ -71,30 +78,40 @@ export function setupIpcHandlers(): void {
   // connections:create
   ipcMain.handle('connections:create', async (_event, config) => {
     try {
+      if (!config?.name || typeof config.name !== 'string' || config.name.trim() === '') {
+        throw new Error('Connection name is required');
+      }
+
+      const type = config.type || 'postgres';
+      const validation = validateConnectionConfig(type, config);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
       const id = randomUUID();
       const now = Date.now();
 
-      const secretBlob = safeStorage.encryptString(config.password);
+      const secretBlob = safeStorage.encryptString(config.password || '');
 
       createConnection({
         id,
         name: config.name,
-        type: config.type || 'postgres',
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        username: config.username,
+        type,
+        host: config.host || '',
+        port: config.port || 0,
+        database: config.database || config.filepath || '',
+        username: config.username || '',
         secret_encrypted: secretBlob,
       });
 
       return {
         id,
         name: config.name,
-        type: config.type || 'postgres',
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        username: config.username,
+        type,
+        host: config.host || '',
+        port: config.port || 0,
+        database: config.database || config.filepath || '',
+        username: config.username || '',
         created_at: now,
         updated_at: now,
       } as ConnectionDTO;

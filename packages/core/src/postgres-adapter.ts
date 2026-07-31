@@ -12,6 +12,8 @@ import type {
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class PostgresAdapter extends DatabaseAdapter {
   private pool: Pool | null = null;
 
@@ -20,6 +22,11 @@ export class PostgresAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('postgres', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     try {
       const tempPool = new Pool({
         host: this.config.host,

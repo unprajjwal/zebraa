@@ -12,6 +12,8 @@ import type {
 
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class RedisAdapter extends DatabaseAdapter {
   private client: Redis | null = null;
 
@@ -20,6 +22,11 @@ export class RedisAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('redis', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     let tempClient: Redis | null = null;
     try {
       tempClient = new Redis({

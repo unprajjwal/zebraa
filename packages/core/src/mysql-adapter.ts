@@ -12,6 +12,8 @@ import type {
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class MySQLAdapter extends DatabaseAdapter {
   private pool: mysql.Pool | null = null;
 
@@ -20,6 +22,11 @@ export class MySQLAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('mysql', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     try {
       const connection = await mysql.createConnection({
         host: this.config.host,

@@ -13,6 +13,8 @@ import type {
 
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class SQLiteAdapter extends DatabaseAdapter {
   private db: Database.Database | null = null;
 
@@ -33,6 +35,11 @@ export class SQLiteAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('sqlite', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     try {
       if (this.db) {
         this.db.prepare('SELECT 1').get();

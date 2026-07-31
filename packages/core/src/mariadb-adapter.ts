@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import { MySQLAdapter } from './mysql-adapter.js';
 import type { ConnectionConfig, SchemaInfo, TableInfo } from './types/index.js';
+import { validateConnectionConfig } from './validation.js';
 
 export class MariaDBAdapter extends MySQLAdapter {
   constructor(config: ConnectionConfig) {
@@ -11,6 +12,11 @@ export class MariaDBAdapter extends MySQLAdapter {
   }
 
   override async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('mariadb', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     try {
       const connection = await mysql.createConnection({
         host: this.config.host,

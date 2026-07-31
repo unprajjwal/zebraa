@@ -13,6 +13,8 @@ import type {
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class MongoDBAdapter extends DatabaseAdapter {
   private client: MongoClient | null = null;
 
@@ -39,6 +41,11 @@ export class MongoDBAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('mongodb', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     let tempClient: MongoClient | null = null;
     try {
       const uri = this.buildConnectionString();

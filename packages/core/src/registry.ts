@@ -7,8 +7,11 @@ import { RedisAdapter } from './redis-adapter.js';
 import { SQLiteAdapter } from './sqlite-adapter.js';
 import { ClickHouseAdapter } from './clickhouse-adapter.js';
 import { AdapterType, ConnectionConfig, DBAdapter } from './types/index.js';
+import { assertValidConnectionConfig } from './validation.js';
 
 export function createAdapter(type: AdapterType, config: ConnectionConfig): DBAdapter {
+  assertValidConnectionConfig(type, config);
+
   switch (type) {
     case 'postgres':
       return new PostgresAdapter(config);

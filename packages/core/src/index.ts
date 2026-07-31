@@ -1,4 +1,5 @@
 export { createAdapter } from './registry.js';
+export { validateConnectionConfig, assertValidConnectionConfig, type ValidationResult } from './validation.js';
 export type { AdapterType, ConnectionConfig, SchemaInfo, TableInfo, ColumnInfo, ForeignKeyInfo, RowSet, QueryOptions, TableStats, DBAdapter, NewConnectionInput, ConnectionDTO } from './types/index.js';
 export { PostgresAdapter } from './postgres-adapter.js';
 export { MySQLAdapter } from './mysql-adapter.js';
@@ -8,3 +9,4 @@ export { MongoDBAdapter } from './mongodb-adapter.js';
 export { RedisAdapter } from './redis-adapter.js';
 export { SQLiteAdapter } from './sqlite-adapter.js';
 export { DatabaseAdapter } from './db-adapter.js';
+

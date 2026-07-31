@@ -65,6 +65,7 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
     setType(initialType);
     setPort(getDefaultPort(initialType));
     setUsername(getDefaultUsername(initialType));
+    setTestResult(null);
   }, [initialType]);
 
   function handleTypeChange(newType: AdapterType) {
@@ -74,21 +75,75 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
     setUsername(getDefaultUsername(newType));
   }
 
+  function validateLocal(): { valid: boolean; error?: string } {
+    if (!name.trim()) {
+      return { valid: false, error: 'Connection name is required' };
+    }
+
+    if (type === 'sqlite') {
+      if (!database.trim()) {
+        return { valid: false, error: 'Database file path is required for SQLite' };
+      }
+      return { valid: true };
+    }
+
+    if (!host.trim()) {
+      return { valid: false, error: 'Host is required' };
+    }
+
+    if (port === '' || port === null || port === undefined) {
+      return { valid: false, error: 'Port is required' };
+    }
+
+    const portNum = parseInt(port, 10);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      return { valid: false, error: 'Port must be a valid integer between 1 and 65535' };
+    }
+
+    if (type !== 'redis' && !database.trim()) {
+      return { valid: false, error: 'Database name is required' };
+    }
+
+    if ((type === 'postgres' || type === 'mysql' || type === 'mariadb' || type === 'mssql') && !username.trim()) {
+      return { valid: false, error: 'Username is required' };
+    }
+
+    return { valid: true };
+  }
+
   async function handleTest() {
     setTesting(true);
+    setTestResult(null);
+
+    const validation = validateLocal();
+    if (!validation.valid) {
+      setTestResult({ ok: false, error: validation.error });
+      setTesting(false);
+      return;
+    }
+
+    if (!window.ipc || !window.ipc.connections) {
+      setTestResult({
+        ok: false,
+        error: 'Electron IPC bridge is unavailable. Please run the desktop application using Electron (e.g. `pnpm dev` or `npm run dev`).',
+      });
+      setTesting(false);
+      return;
+    }
+
     try {
       const result = await window.ipc.connections.test({
-        name,
+        name: name.trim(),
         type,
-        host,
-        port: parseInt(port, 10),
-        database,
-        username,
+        host: host.trim(),
+        port: parseInt(port, 10) || 0,
+        database: database.trim(),
+        username: username.trim(),
         password,
       });
       setTestResult(result);
     } catch (error) {
-      setTestResult({ ok: false, error: String(error) });
+      setTestResult({ ok: false, error: error instanceof Error ? error.message : String(error) });
     } finally {
       setTesting(false);
     }
@@ -96,18 +151,26 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    const validation = validateLocal();
+    if (!validation.valid) {
+      alert(`Error: ${validation.error}`);
+      return;
+    }
+
     if (!testResult?.ok) {
       alert('Please test the connection first');
       return;
     }
+
     try {
       await onSubmit({
-        name,
+        name: name.trim(),
         type,
-        host,
-        port: parseInt(port, 10),
-        database,
-        username,
+        host: host.trim(),
+        port: parseInt(port, 10) || 0,
+        database: database.trim(),
+        username: username.trim(),
         password,
       });
     } catch (error) {
@@ -137,7 +200,10 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
         type="text"
         placeholder="e.g. Local dev"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          setTestResult(null);
+        }}
         required
       />
 
@@ -160,68 +226,90 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
         <option value="clickhouse">ClickHouse</option>
       </select>
 
-      <div className="field-row">
-        <div style={{ flex: 2 }}>
-          <label className="form-label" htmlFor="conn-host">
-            Host
-          </label>
-          <input
-            id="conn-host"
-            className="field"
-            type="text"
-            value={host}
-            onChange={(e) => setHost(e.target.value)}
-            required
-          />
+      {type !== 'sqlite' && (
+        <div className="field-row">
+          <div style={{ flex: 2 }}>
+            <label className="form-label" htmlFor="conn-host">
+              Host
+            </label>
+            <input
+              id="conn-host"
+              className="field"
+              type="text"
+              value={host}
+              onChange={(e) => {
+                setHost(e.target.value);
+                setTestResult(null);
+              }}
+              required
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="form-label" htmlFor="conn-port">
+              Port
+            </label>
+            <input
+              id="conn-port"
+              className="field"
+              type="number"
+              value={port}
+              onChange={(e) => {
+                setPort(e.target.value);
+                setTestResult(null);
+              }}
+              required
+            />
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <label className="form-label" htmlFor="conn-port">
-            Port
-          </label>
-          <input
-            id="conn-port"
-            className="field"
-            type="number"
-            value={port}
-            onChange={(e) => setPort(e.target.value)}
-            required
-          />
-        </div>
-      </div>
+      )}
 
       <label className="form-label" htmlFor="conn-database">
-        Database
+        {type === 'sqlite' ? 'Database File Path' : 'Database'}
       </label>
       <input
         id="conn-database"
         className="field"
         type="text"
+        placeholder={type === 'sqlite' ? '/path/to/database.db or :memory:' : 'e.g. my_database'}
         value={database}
-        onChange={(e) => setDatabase(e.target.value)}
+        onChange={(e) => {
+          setDatabase(e.target.value);
+          setTestResult(null);
+        }}
         required
       />
 
-      <label className="form-label" htmlFor="conn-username">
-        Username
-      </label>
-      <input
-        id="conn-username"
-        className="field"
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
+      {type !== 'sqlite' && (
+        <>
+          <label className="form-label" htmlFor="conn-username">
+            Username
+          </label>
+          <input
+            id="conn-username"
+            className="field"
+            type="text"
+            value={username}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setTestResult(null);
+            }}
+          />
 
-      <label className="form-label" htmlFor="conn-password">
-        Password
-      </label>
-      <input
-        id="conn-password"
-        className="field"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
+          <label className="form-label" htmlFor="conn-password">
+            Password
+          </label>
+          <input
+            id="conn-password"
+            className="field"
+            type="password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setTestResult(null);
+            }}
+          />
+        </>
+      )}
 
       <button type="button" className="btn btn-ghost" onClick={handleTest} disabled={testing}>
         {testing ? 'Testing…' : 'Test connection'}

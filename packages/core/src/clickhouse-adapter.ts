@@ -12,6 +12,8 @@ import type {
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class ClickHouseAdapter extends DatabaseAdapter {
   constructor(config: ConnectionConfig) {
     super(config);

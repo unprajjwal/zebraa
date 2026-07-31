@@ -12,6 +12,8 @@ import type {
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_ROW_LIMIT = 1000;
 
+import { validateConnectionConfig } from './validation.js';
+
 export class MSSQLAdapter extends DatabaseAdapter {
   private pool: mssql.ConnectionPool | null = null;
 
@@ -23,6 +25,11 @@ export class MSSQLAdapter extends DatabaseAdapter {
   }
 
   async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    const validation = validateConnectionConfig('mssql', this.config);
+    if (!validation.valid) {
+      return { ok: false, error: validation.error };
+    }
+
     let tempPool: mssql.ConnectionPool | null = null;
     try {
       const sqlConfig: mssql.config = {

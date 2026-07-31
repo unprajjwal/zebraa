@@ -1,0 +1,26 @@
+[package]
+name = "zebraa-core"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+tokio-postgres = "0.7"
+deadpool-postgres = "0.14"
+mysql_async = "0.34"
+regex = "1.10"
+tiberius = { version = "0.12", default-features = false, features = ["tokio", "tds73"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+reqwest = { version = "0.12", features = ["json"] }
+url = "2.5"
+mongodb = "3.1"
+urlencoding = "2.1"
+redis = { version = "0.27", features = ["tokio-comp"] }
+
+
+
+
