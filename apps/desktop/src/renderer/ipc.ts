@@ -107,12 +107,7 @@ export function getActiveIpc(): IpcApi {
     return tauriIpc;
   }
 
-  // 2. Check if running inside Electron environment (window.ipc pre-exposed by preload script)
-  if (window.ipc) {
-    return window.ipc;
-  }
-
-  // 3. Fallback for browser environment
+  // 2. Fallback for browser environment
   return fallbackIpc;
 }
 

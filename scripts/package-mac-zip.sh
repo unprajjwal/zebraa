@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script to package the built macOS .app bundle into a plain .zip file (matching electron-builder's mac zip target).
+# Script to package the built macOS .app bundle into a plain .zip file.
 
 BUNDLE_DIR=""
 if [ -d "target/release/bundle/macos" ]; then

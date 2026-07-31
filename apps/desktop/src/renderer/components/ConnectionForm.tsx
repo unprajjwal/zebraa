@@ -125,7 +125,7 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
     if (!window.ipc || !window.ipc.connections) {
       setTestResult({
         ok: false,
-        error: 'Electron IPC bridge is unavailable. Please run the desktop application using Electron (e.g. `pnpm dev` or `npm run dev`).',
+        error: 'IPC bridge is unavailable. Please run the desktop application (e.g. `pnpm dev`).',
       });
       setTesting(false);
       return;

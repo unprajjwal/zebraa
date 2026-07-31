@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm run -r --filter='./apps/desktop' dev",
+    "dev": "pnpm run dev:tauri",
     "dev:tauri": "tauri dev --config crates/app/tauri.conf.json",
     "tauri": "tauri",
     "build": "pnpm run -r build",
