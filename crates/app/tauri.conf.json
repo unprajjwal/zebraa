@@ -6,15 +6,17 @@
   "build": {
     "beforeDevCommand": "pnpm --filter zebraa-desktop exec vite",
     "beforeBuildCommand": "pnpm --filter zebraa-desktop exec vite build",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../../apps/desktop/dist/renderer"
   },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Zebraa",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "url": "/"
       }
     ],
     "security": {

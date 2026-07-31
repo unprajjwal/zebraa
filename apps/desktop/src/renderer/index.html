@@ -21,6 +21,20 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:#ff5a1f;padding:24px;z-index:999999;font-family:monospace;white-space:pre-wrap;overflow:auto;';
+        errDiv.innerHTML = '<h1>Global JS Error</h1><p>' + e.message + '</p><pre>' + (e.error ? e.error.stack : '') + '</pre>';
+        document.body.appendChild(errDiv);
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var errDiv = document.createElement('div');
+        errDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#111;color:#ff5a1f;padding:24px;z-index:999999;font-family:monospace;white-space:pre-wrap;overflow:auto;';
+        errDiv.innerHTML = '<h1>Unhandled Rejection</h1><p>' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)) + '</p><pre>' + (e.reason && e.reason.stack ? e.reason.stack : '') + '</pre>';
+        document.body.appendChild(errDiv);
+      });
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm run -r --filter='./apps/desktop' dev",
+    "dev:tauri": "tauri dev --config crates/app/tauri.conf.json",
+    "tauri": "tauri",
     "build": "pnpm run -r build",
     "prepare": "pnpm run -r build",
     "lint": "echo 'Linting disabled for now'",
@@ -20,6 +22,7 @@
     "pnpm": ">=8.0.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.10"
   },

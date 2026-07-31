@@ -29,6 +29,11 @@ fn main() {
     tauri::Builder::default()
         .plugin(stronghold_plugin)
         .setup(|app| {
+            #[cfg(debug_assertions)]
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             let app_data_dir = app
                 .path()
                 .app_data_dir()
