@@ -9,6 +9,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@zebraa/core/validation': path.resolve(__dirname, './packages/core/src/validation.ts'),
+      '@zebraa/core/types': path.resolve(__dirname, './packages/core/src/types/index.ts'),
       '@zebraa/core': path.resolve(__dirname, './packages/core/src/index.ts'),
       '@zebraa/ui': path.resolve(__dirname, './packages/ui/src/index.ts'),
     },

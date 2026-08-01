@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import ConnectionsList from './components/ConnectionsList';
 import ConnectionForm from './components/ConnectionForm';
 import DatabaseTypeSelector from './components/DatabaseTypeSelector';
-import SchemaBrowser from './components/SchemaBrowser';
+import TableTree from './components/TableTree';
+import QueryWorkspace from './components/QueryWorkspace';
 import AIPanel from './components/AIPanel';
 import WelcomeScreen from './components/WelcomeScreen';
 import ThemeToggle from './components/ThemeToggle';
-import type { ConnectionDTO, AdapterType } from '@zebraa/core';
+import type { ConnectionDTO, AdapterType, SchemaInfo } from '@zebraa/core';
 import { getActiveIpc } from './ipc';
 
 export default function App() {
@@ -16,6 +17,12 @@ export default function App() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addStep, setAddStep] = useState<'select-type' | 'configure'>('select-type');
   const [selectedDbType, setSelectedDbType] = useState<AdapterType>('postgres');
+
+  // Schema state lifted from SchemaBrowser
+  const [schema, setSchema] = useState<SchemaInfo | null>(null);
+  const [schemaLoading, setSchemaLoading] = useState(false);
+  const [schemaError, setSchemaError] = useState<string | null>(null);
+  const [openTableSignal, setOpenTableSignal] = useState<{ tableName: string; timestamp: number } | null>(null);
 
   // Left & Right panel resize & collapse state
   const [leftWidth, setLeftWidth] = useState(264);
@@ -29,6 +36,38 @@ export default function App() {
   useEffect(() => {
     loadConnections();
   }, []);
+
+  useEffect(() => {
+    if (!selectedConnectionId) {
+      setSchema(null);
+      setSchemaLoading(false);
+      setSchemaError(null);
+      return;
+    }
+
+    let canceled = false;
+    setSchemaLoading(true);
+    setSchemaError(null);
+
+    getActiveIpc()
+      .schema.get(selectedConnectionId)
+      .then((data) => {
+        if (!canceled) {
+          setSchema(data);
+          setSchemaLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!canceled) {
+          setSchemaError(err instanceof Error ? err.message : String(err));
+          setSchemaLoading(false);
+        }
+      });
+
+    return () => {
+      canceled = true;
+    };
+  }, [selectedConnectionId]);
 
   async function loadConnections() {
     try {
@@ -89,7 +128,7 @@ export default function App() {
 
     function onMouseMove(moveEvent: MouseEvent) {
       const delta = moveEvent.clientX - startX;
-      const newWidth = Math.max(180, Math.min(500, startWidth + delta));
+      const newWidth = Math.max(200, Math.min(500, startWidth + delta));
       setLeftWidth(newWidth);
     }
 
@@ -164,25 +203,41 @@ export default function App() {
           </div>
         ) : (
           <div className="sidebar" style={{ width: `${leftWidth}px` }}>
-            <div className="panel-heading">
-              <span>Connections</span>
-              <button
-                type="button"
-                className="panel-collapse-btn"
-                onClick={() => setLeftCollapsed(true)}
-                title="Collapse Left Panel"
-              >
-                «
-              </button>
+            <div className="sidebar__conn-section">
+              <div className="panel-heading">
+                <span>Connections</span>
+                <button
+                  type="button"
+                  className="panel-collapse-btn"
+                  onClick={() => setLeftCollapsed(true)}
+                  title="Collapse Left Panel"
+                >
+                  «
+                </button>
+              </div>
+              <div className="sidebar__list">
+                <ConnectionsList
+                  connections={connections}
+                  selectedId={selectedConnectionId}
+                  onSelect={setSelectedConnectionId}
+                  onDelete={handleDeleteConnection}
+                />
+              </div>
             </div>
-            <div className="sidebar__list">
-              <ConnectionsList
-                connections={connections}
-                selectedId={selectedConnectionId}
-                onSelect={setSelectedConnectionId}
-                onDelete={handleDeleteConnection}
-              />
-            </div>
+
+            {selectedConnectionId && (
+              <div className="sidebar__table-section">
+                <TableTree
+                  schema={schema}
+                  loading={schemaLoading}
+                  error={schemaError}
+                  onOpenTable={(tableName) =>
+                    setOpenTableSignal({ tableName, timestamp: Date.now() })
+                  }
+                />
+              </div>
+            )}
+
             <div className="sidebar__footer">
               {showAddForm ? (
                 addStep === 'select-type' ? (
@@ -222,7 +277,11 @@ export default function App() {
 
         <div className="center">
           {selectedConnectionId ? (
-            <SchemaBrowser connectionId={selectedConnectionId} />
+            <QueryWorkspace
+              connectionId={selectedConnectionId}
+              schema={schema}
+              openTableSignal={openTableSignal}
+            />
           ) : (
             <div className="empty-state">
               <div className="empty-state__title">No connection selected</div>
