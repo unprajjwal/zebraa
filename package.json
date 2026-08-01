@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm run dev:tauri",
-    "dev:tauri": "tauri dev --config crates/app/tauri.conf.json",
-    "tauri": "tauri",
+    "dev:tauri": "pnpm exec tauri dev --config crates/app/tauri.conf.json",
+    "tauri": "pnpm exec tauri",
     "build": "pnpm run -r build",
     "prepare": "pnpm run -r build",
     "lint": "echo 'Linting disabled for now'",

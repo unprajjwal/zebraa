@@ -7,6 +7,7 @@ import AIPanel from './components/AIPanel';
 import WelcomeScreen from './components/WelcomeScreen';
 import ThemeToggle from './components/ThemeToggle';
 import type { ConnectionDTO, AdapterType } from '@zebraa/core';
+import { getActiveIpc } from './ipc';
 
 export default function App() {
   const [entered, setEntered] = useState(false);
@@ -31,7 +32,7 @@ export default function App() {
 
   async function loadConnections() {
     try {
-      const list = await window.ipc.connections.list();
+      const list = await getActiveIpc().connections.list();
       setConnections(list);
       if (list.length > 0 && !selectedConnectionId) {
         setSelectedConnectionId(list[0].id);
@@ -58,7 +59,7 @@ export default function App() {
 
   async function handleAddConnection(config: any) {
     try {
-      await window.ipc.connections.create(config);
+      await getActiveIpc().connections.create(config);
       handleCancelAdd();
       await loadConnections();
     } catch (error) {
@@ -69,7 +70,7 @@ export default function App() {
 
   async function handleDeleteConnection(id: string) {
     try {
-      await window.ipc.connections.delete(id);
+      await getActiveIpc().connections.delete(id);
       if (selectedConnectionId === id) {
         setSelectedConnectionId(null);
       }

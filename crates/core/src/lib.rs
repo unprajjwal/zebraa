@@ -1,6 +1,7 @@
 pub mod adapter;
 pub mod clickhouse;
 pub mod config;
+pub mod errors;
 pub mod mariadb;
 pub mod mongodb;
 pub mod mssql;
@@ -13,6 +14,7 @@ pub mod validation;
 pub use adapter::{create_adapter, DbAdapter};
 pub use clickhouse::ClickhouseAdapter;
 pub use config::*;
+pub use errors::describe_error;
 pub use mariadb::MariadbAdapter;
 pub use mongodb::MongodbAdapter;
 pub use mssql::MssqlAdapter;

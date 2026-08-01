@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { AdapterType } from '@zebraa/core';
+import { getActiveIpc } from '../ipc';
 
 interface Props {
   initialType?: AdapterType;
@@ -122,17 +123,8 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
       return;
     }
 
-    if (!window.ipc || !window.ipc.connections) {
-      setTestResult({
-        ok: false,
-        error: 'IPC bridge is unavailable. Please run the desktop application (e.g. `pnpm dev`).',
-      });
-      setTesting(false);
-      return;
-    }
-
     try {
-      const result = await window.ipc.connections.test({
+      const result = await getActiveIpc().connections.test({
         name: name.trim(),
         type,
         host: host.trim(),
@@ -140,6 +132,7 @@ export default function ConnectionForm({ initialType = 'postgres', onBack, onSub
         database: database.trim(),
         username: username.trim(),
         password,
+        filepath: type === 'sqlite' ? database.trim() : undefined,
       });
       setTestResult(result);
     } catch (error) {

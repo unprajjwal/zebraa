@@ -117,10 +117,10 @@ pub async fn connections_test(
     let conn_config = ConnectionConfig {
         host: config.host,
         port: config.port,
-        database: config.database,
+        database: config.database.clone(),
         username: config.username,
         password: config.password,
-        filepath: config.filepath,
+        filepath: config.filepath.or(config.database),
         ssl: None,
     };
 

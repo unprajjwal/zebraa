@@ -4,6 +4,11 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./validation": "./dist/validation.js",
+    "./types": "./dist/types/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist"

@@ -67,4 +67,34 @@ describe('End-to-End UI & IPC Connection Validation for All Databases', () => {
       expect(element.props.initialType).toBe(type);
     }
   });
+
+  it('should NOT return ok: true on wrong credentials or invalid config in fallback IPC mode', async () => {
+    const { fallbackIpc } = await import('../renderer/ipc');
+
+    // 1. Missing username for Postgres
+    const resInvalid = await fallbackIpc.connections.test({
+      name: 'Test Postgres',
+      type: 'postgres',
+      host: 'localhost',
+      port: 5432,
+      database: 'zebraa',
+      username: '',
+      password: 'wrongpassword',
+    });
+    expect(resInvalid.ok).toBe(false);
+    expect(resInvalid.error).toBe('Username is required');
+
+    // 2. Unreachable host / wrong credentials for Postgres
+    const resWrongCreds = await fallbackIpc.connections.test({
+      name: 'Test Postgres',
+      type: 'postgres',
+      host: '127.0.0.1',
+      port: 59999, // unreachable port
+      database: 'zebraa',
+      username: 'wronguser',
+      password: 'wrongpassword',
+    });
+    expect(resWrongCreds.ok).toBe(false);
+    expect(resWrongCreds.error).toContain('Direct database TCP socket connection is unavailable in web browser preview mode');
+  });
 });

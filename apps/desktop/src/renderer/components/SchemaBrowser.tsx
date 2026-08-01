@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { SchemaInfo } from '@zebraa/core';
+import { getActiveIpc } from '../ipc';
 
 interface Props {
   connectionId: string;
@@ -19,7 +20,7 @@ export default function SchemaBrowser({ connectionId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const data = await window.ipc.schema.get(connectionId);
+      const data = await getActiveIpc().schema.get(connectionId);
       setSchema(data);
       if (data.tables.length > 0) {
         setExpandedTable(data.tables[0].name);
