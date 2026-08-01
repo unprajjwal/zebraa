@@ -30,8 +30,14 @@ impl MysqlAdapter {
 
     fn create_opts(&self) -> OptsBuilder {
         let mut opts = OptsBuilder::default();
+        opts = opts.prefer_socket(false);
         if let Some(ref h) = self.config.host {
-            opts = opts.ip_or_hostname(h.clone());
+            let host_str = if h.trim().eq_ignore_ascii_case("localhost") {
+                "127.0.0.1"
+            } else {
+                h.as_str()
+            };
+            opts = opts.ip_or_hostname(host_str);
         }
         if let Some(p) = self.config.port {
             opts = opts.tcp_port(p);
@@ -110,20 +116,38 @@ impl DbAdapter for MysqlAdapter {
         }
 
         let temp_pool = Pool::new(self.create_opts());
-        match temp_pool.get_conn().await {
-            Ok(mut conn) => match conn.query_drop("SELECT 1").await {
-                Ok(_) => {
-                    let _ = temp_pool.disconnect().await;
-                    Ok(TestConnectionResult { ok: true, error: None })
+        let conn_attempt = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            temp_pool.get_conn()
+        ).await;
+
+        match conn_attempt {
+            Ok(Ok(mut conn)) => {
+                let query_attempt = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    conn.query_drop("SELECT 1")
+                ).await;
+                drop(conn);
+                let _ = temp_pool.disconnect().await;
+                match query_attempt {
+                    Ok(Ok(_)) => Ok(TestConnectionResult { ok: true, error: None }),
+                    Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                    Err(_) => Ok(TestConnectionResult {
+                        ok: false,
+                        error: Some("Query execution timed out (5s)".to_string()),
+                    }),
                 }
-                Err(e) => {
-                    let _ = temp_pool.disconnect().await;
-                    Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) })
-                }
-            },
-            Err(e) => {
+            }
+            Ok(Err(e)) => {
                 let _ = temp_pool.disconnect().await;
                 Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) })
+            }
+            Err(_) => {
+                let _ = temp_pool.disconnect().await;
+                Ok(TestConnectionResult {
+                    ok: false,
+                    error: Some("Connection timed out (5s). Please check if MySQL server is running and accessible.".to_string()),
+                })
             }
         }
     }
@@ -433,5 +457,26 @@ impl DbAdapter for MysqlAdapter {
             let _ = pool.disconnect().await;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_live_mysql_connection_localhost() {
+        let adapter = MysqlAdapter::new(ConnectionConfig {
+            host: Some("localhost".to_string()),
+            port: Some(3306),
+            database: Some("zebraa".to_string()),
+            username: Some("root".to_string()),
+            password: Some("mysql".to_string()),
+            filepath: None,
+            ssl: None,
+        });
+
+        let res = adapter.test_connection().await.unwrap();
+        assert!(res.ok, "Expected localhost connection to succeed, error: {:?}", res.error);
     }
 }

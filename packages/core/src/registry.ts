@@ -10,25 +10,29 @@ import { AdapterType, ConnectionConfig, DBAdapter } from './types/index.js';
 import { assertValidConnectionConfig } from './validation.js';
 
 export function createAdapter(type: AdapterType, config: ConnectionConfig): DBAdapter {
-  assertValidConnectionConfig(type, config);
+  const finalConfig = { ...config };
+  if (type !== 'sqlite' && finalConfig.host && finalConfig.host.trim().toLowerCase() === 'localhost') {
+    finalConfig.host = '127.0.0.1';
+  }
+  assertValidConnectionConfig(type, finalConfig);
 
   switch (type) {
     case 'postgres':
-      return new PostgresAdapter(config);
+      return new PostgresAdapter(finalConfig);
     case 'mysql':
-      return new MySQLAdapter(config);
+      return new MySQLAdapter(finalConfig);
     case 'mariadb':
-      return new MariaDBAdapter(config);
+      return new MariaDBAdapter(finalConfig);
     case 'mssql':
-      return new MSSQLAdapter(config);
+      return new MSSQLAdapter(finalConfig);
     case 'mongodb':
-      return new MongoDBAdapter(config);
+      return new MongoDBAdapter(finalConfig);
     case 'redis':
-      return new RedisAdapter(config);
+      return new RedisAdapter(finalConfig);
     case 'sqlite':
-      return new SQLiteAdapter(config);
+      return new SQLiteAdapter(finalConfig);
     case 'clickhouse':
-      return new ClickHouseAdapter(config);
+      return new ClickHouseAdapter(finalConfig);
     default:
       throw new Error(`Adapter for database type '${type}' is not implemented yet`);
   }

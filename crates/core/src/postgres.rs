@@ -119,13 +119,27 @@ impl DbAdapter for PostgresAdapter {
         }
 
         match self.create_pool() {
-            Ok(temp_pool) => match temp_pool.get().await {
-                Ok(client) => match client.query("SELECT 1", &[]).await {
-                    Ok(_) => Ok(TestConnectionResult { ok: true, error: None }),
-                    Err(e) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
-                },
-                Err(e) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
-            },
+            Ok(temp_pool) => {
+                let conn_res = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    temp_pool.get()
+                ).await;
+                match conn_res {
+                    Ok(Ok(client)) => {
+                        let query_res = tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            client.query("SELECT 1", &[])
+                        ).await;
+                        match query_res {
+                            Ok(Ok(_)) => Ok(TestConnectionResult { ok: true, error: None }),
+                            Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
+                            Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Query execution timed out (5s)".to_string()) }),
+                        }
+                    }
+                    Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
+                    Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Connection timed out (5s). Please check if PostgreSQL server is running.".to_string()) }),
+                }
+            }
             Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
         }
     }

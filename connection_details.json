@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Zebraa Database Connection Presets",
+  "description": "Pre-configured connection details for testing all databases in Zebraa Desktop Explorer",
+  "connections": [
+    {
+      "name": "MySQL (Local Docker)",
+      "type": "mysql",
+      "host": "127.0.0.1",
+      "port": 3306,
+      "database": "zebraa",
+      "username": "root",
+      "password": "mysql",
+      "notes": "Alternate databases created: dummy_ecommerce, dummy_analytics"
+    },
+    {
+      "name": "MariaDB (Local Docker)",
+      "type": "mariadb",
+      "host": "127.0.0.1",
+      "port": 3307,
+      "database": "zebraa",
+      "username": "root",
+      "password": "mariadb",
+      "notes": "Port 3307 maps to container port 3306"
+    },
+    {
+      "name": "PostgreSQL (Local Docker)",
+      "type": "postgres",
+      "host": "127.0.0.1",
+      "port": 5432,
+      "database": "zebraa",
+      "username": "postgres",
+      "password": "postgres"
+    },
+    {
+      "name": "SQL Server (Local Docker)",
+      "type": "mssql",
+      "host": "127.0.0.1",
+      "port": 1433,
+      "database": "master",
+      "username": "sa",
+      "password": "Password123!"
+    },
+    {
+      "name": "MongoDB (Local Docker)",
+      "type": "mongodb",
+      "host": "127.0.0.1",
+      "port": 27017,
+      "database": "admin",
+      "username": "",
+      "password": ""
+    },
+    {
+      "name": "Redis (Local Docker)",
+      "type": "redis",
+      "host": "127.0.0.1",
+      "port": 6379,
+      "database": "0",
+      "username": "",
+      "password": ""
+    },
+    {
+      "name": "SQLite (In-Memory)",
+      "type": "sqlite",
+      "host": "localhost",
+      "port": 0,
+      "database": ":memory:",
+      "username": "",
+      "password": "",
+      "notes": "Or specify path to local .db file"
+    },
+    {
+      "name": "ClickHouse (Default)",
+      "type": "clickhouse",
+      "host": "127.0.0.1",
+      "port": 8123,
+      "database": "default",
+      "username": "default",
+      "password": ""
+    }
+  ]
+}

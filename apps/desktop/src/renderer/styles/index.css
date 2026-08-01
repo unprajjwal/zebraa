@@ -1658,6 +1658,38 @@ h6 {
   background: var(--accent-soft);
 }
 
+.password-field-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-field-container .field {
+  padding-right: 36px;
+  width: 100%;
+}
+
+.btn-toggle-password {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+
+.btn-toggle-password:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
 .conn-form__type-badge {
   font-family: var(--font-mono);
   font-size: 11px;

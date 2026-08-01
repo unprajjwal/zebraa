@@ -22,8 +22,15 @@ pub trait DbAdapter: Send + Sync {
 
 pub fn create_adapter(
     adapter_type: AdapterType,
-    config: ConnectionConfig,
+    mut config: ConnectionConfig,
 ) -> Result<Box<dyn DbAdapter>, String> {
+    if adapter_type != AdapterType::Sqlite {
+        if let Some(ref h) = config.host {
+            if h.trim().eq_ignore_ascii_case("localhost") {
+                config.host = Some("127.0.0.1".to_string());
+            }
+        }
+    }
     match adapter_type {
         AdapterType::Postgres => Ok(Box::new(PostgresAdapter::new(config))),
         AdapterType::Mysql => Ok(Box::new(MysqlAdapter::new(config))),

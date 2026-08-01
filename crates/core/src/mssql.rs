@@ -143,15 +143,25 @@ impl DbAdapter for MssqlAdapter {
             });
         }
 
-        match self.connect().await {
-            Ok(mut client) => {
-                let res = client.query("SELECT 1", &[]).await;
-                match res {
-                    Ok(_) => Ok(TestConnectionResult { ok: true, error: None }),
-                    Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+        let conn_res = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.connect()
+        ).await;
+
+        match conn_res {
+            Ok(Ok(mut client)) => {
+                let query_res = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    client.query("SELECT 1", &[])
+                ).await;
+                match query_res {
+                    Ok(Ok(_)) => Ok(TestConnectionResult { ok: true, error: None }),
+                    Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                    Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Query execution timed out (5s)".to_string()) }),
                 }
             }
-            Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+            Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+            Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Connection timed out (5s). Please check if SQL Server is running.".to_string()) }),
         }
     }
 

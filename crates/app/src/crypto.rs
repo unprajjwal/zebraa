@@ -190,10 +190,19 @@ pub struct CryptoService<K: KeyringProvider, S: StrongholdStore> {
 
 impl<K: KeyringProvider, S: StrongholdStore> CryptoService<K, S> {
     pub fn new(keyring: K, stronghold: S, is_linux: bool) -> Self {
+        Self::new_with_force(keyring, stronghold, is_linux, false)
+    }
+
+    pub fn new_with_force(keyring: K, stronghold: S, is_linux: bool, force_stronghold: bool) -> Self {
+        let initial_backend = if force_stronghold {
+            Some(ActiveBackend::Stronghold)
+        } else {
+            None
+        };
         Self {
             keyring,
             stronghold,
-            cached_backend: Mutex::new(None),
+            cached_backend: Mutex::new(initial_backend),
             is_linux,
         }
     }
@@ -338,15 +347,16 @@ pub fn init_crypto(app_data_dir: &Path) -> Result<(), String> {
 
 fn get_global_crypto() -> &'static GlobalCryptoService {
     GLOBAL_CRYPTO.get_or_init(|| {
-        let temp_dir = std::env::temp_dir().join("zebraa-crypto-default");
+        let temp_dir = std::env::temp_dir().join(format!("zebraa-crypto-default-{}", if cfg!(test) { "test" } else { "main" }));
         let vault_path = temp_dir.join("zebraa.stronghold");
         let key_path = temp_dir.join(".vault_key");
         let vault_key = get_or_create_vault_key(&key_path).unwrap_or_else(|_| vec![0u8; 32]);
         let stronghold_store = FileStrongholdStore::new(vault_path, vault_key);
-        Arc::new(CryptoService::new(
+        Arc::new(CryptoService::new_with_force(
             OsKeyringProvider,
             stronghold_store,
             cfg!(target_os = "linux"),
+            cfg!(test),
         ))
     })
 }

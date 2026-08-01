@@ -137,12 +137,19 @@ pub async fn connections_test(
         Err(e) => return Ok(TestConnectionResult { ok: false, error: Some(e) }),
     };
 
-    let res = adapter.test_connection().await;
+    let res = tokio::time::timeout(
+        std::time::Duration::from_secs(6),
+        adapter.test_connection()
+    ).await;
     adapter.close().await.ok();
 
     match res {
-        Ok(test_res) => Ok(test_res),
-        Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+        Ok(Ok(test_res)) => Ok(test_res),
+        Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+        Err(_) => Ok(TestConnectionResult {
+            ok: false,
+            error: Some("Connection test timed out (6s). Please check host, port, and database server status.".to_string()),
+        }),
     }
 }
 
@@ -500,5 +507,21 @@ mod tests {
         assert!(err.contains("Failed to fetch schema"), "Expected 'Failed to fetch schema' error, got: {}", err);
     }
 
+    #[tokio::test]
+    async fn test_connections_test_unreachable_mysql() {
+        let input = NewConnectionInput {
+            name: Some("Unreachable MySQL".to_string()),
+            r#type: Some(AdapterType::Mysql),
+            host: Some("127.0.0.1".to_string()),
+            port: Some(59998),
+            database: Some("zebraa".to_string()),
+            username: Some("root".to_string()),
+            password: Some("secret".to_string()),
+            filepath: None,
+        };
 
+        let result = connections_test(input).await.unwrap();
+        assert!(!result.ok, "Expected ok to be false for unreachable MySQL");
+        assert!(result.error.is_some(), "Expected error message for unreachable MySQL");
+    }
 }

@@ -36,15 +36,35 @@ impl DbAdapter for MariadbAdapter {
             });
         }
 
-        match self.inner.get_pool().await {
-            Ok(pool) => match pool.get_conn().await {
-                Ok(mut conn) => match conn.query_drop("SELECT VERSION()").await {
-                    Ok(_) => Ok(TestConnectionResult { ok: true, error: None }),
-                    Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
-                },
-                Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
-            },
-            Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+        let pool_res = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.inner.get_pool()
+        ).await;
+
+        match pool_res {
+            Ok(Ok(pool)) => {
+                let conn_res = tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    pool.get_conn()
+                ).await;
+                match conn_res {
+                    Ok(Ok(mut conn)) => {
+                        let query_res = tokio::time::timeout(
+                            std::time::Duration::from_secs(5),
+                            conn.query_drop("SELECT VERSION()")
+                        ).await;
+                        match query_res {
+                            Ok(Ok(_)) => Ok(TestConnectionResult { ok: true, error: None }),
+                            Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                            Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Query execution timed out (5s)".to_string()) }),
+                        }
+                    }
+                    Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                    Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Connection timed out (5s). Please check if MariaDB server is running.".to_string()) }),
+                }
+            }
+            Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+            Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Connection timed out (5s). Please check if MariaDB server is running.".to_string()) }),
         }
     }
 

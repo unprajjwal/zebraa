@@ -417,15 +417,19 @@ impl DbAdapter for MongodbAdapter {
             });
         }
 
-        let client = match self.get_client().await {
-            Ok(c) => c,
-            Err(e) => return Ok(TestConnectionResult { ok: false, error: Some(e) }),
-        };
+        let test_res = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            async {
+                let client = self.get_client().await?;
+                let db_name = self.config.database.as_deref().unwrap_or("zebraa");
+                client.database(db_name).run_command(doc! { "ping": 1 }).await.map_err(|e| e.to_string())
+            }
+        ).await;
 
-        let db_name = self.config.database.as_deref().unwrap_or("zebraa");
-        match client.database(db_name).run_command(doc! { "ping": 1 }).await {
-            Ok(_) => Ok(TestConnectionResult { ok: true, error: None }),
-            Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+        match test_res {
+            Ok(Ok(_)) => Ok(TestConnectionResult { ok: true, error: None }),
+            Ok(Err(e)) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
+            Err(_) => Ok(TestConnectionResult { ok: false, error: Some("Connection timed out (5s). Please check if MongoDB server is running.".to_string()) }),
         }
     }
 
