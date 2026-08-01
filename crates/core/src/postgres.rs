@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 use tokio_postgres::NoTls;
 
 use crate::adapter::DbAdapter;
+use crate::errors::describe_error;
 use crate::config::{
     AdapterType, ColumnInfo, ConnectionConfig, ForeignKeyInfo, QueryOptions, RowSet, SchemaInfo,
     TableInfo, TableStats, TestConnectionResult,
@@ -40,7 +41,7 @@ impl PostgresAdapter {
         });
 
         cfg.create_pool(Some(Runtime::Tokio1), NoTls)
-            .map_err(|e| e.to_string())
+            .map_err(|e| describe_error(&e))
     }
 
     async fn get_pool(&self) -> Result<Pool, String> {
@@ -121,9 +122,9 @@ impl DbAdapter for PostgresAdapter {
             Ok(temp_pool) => match temp_pool.get().await {
                 Ok(client) => match client.query("SELECT 1", &[]).await {
                     Ok(_) => Ok(TestConnectionResult { ok: true, error: None }),
-                    Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                    Err(e) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
                 },
-                Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e.to_string()) }),
+                Err(e) => Ok(TestConnectionResult { ok: false, error: Some(describe_error(&e)) }),
             },
             Err(e) => Ok(TestConnectionResult { ok: false, error: Some(e) }),
         }
@@ -131,7 +132,7 @@ impl DbAdapter for PostgresAdapter {
 
     async fn get_schema(&self) -> Result<SchemaInfo, String> {
         let pool = self.get_pool().await?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| describe_error(&e))?;
 
         // 1. Tables and columns
         let table_query = "
@@ -149,7 +150,7 @@ impl DbAdapter for PostgresAdapter {
             ORDER BY t.table_name, c.ordinal_position
         ";
 
-        let rows = client.query(table_query, &[]).await.map_err(|e| e.to_string())?;
+        let rows = client.query(table_query, &[]).await.map_err(|e| describe_error(&e))?;
         let mut table_map: HashMap<String, TableInfo> = HashMap::new();
         let mut table_order: Vec<String> = Vec::new();
 
@@ -198,7 +199,7 @@ impl DbAdapter for PostgresAdapter {
             ORDER BY kcu.table_name, kcu.ordinal_position
         ";
 
-        let pk_rows = client.query(pk_query, &[]).await.map_err(|e| e.to_string())?;
+        let pk_rows = client.query(pk_query, &[]).await.map_err(|e| describe_error(&e))?;
         for row in pk_rows {
             let table_name: String = row.get(0);
             let col_name: String = row.get(1);
@@ -227,7 +228,7 @@ impl DbAdapter for PostgresAdapter {
               AND tc.table_schema NOT IN ('pg_catalog', 'information_schema')
         ";
 
-        let fk_rows = client.query(fk_query, &[]).await.map_err(|e| e.to_string())?;
+        let fk_rows = client.query(fk_query, &[]).await.map_err(|e| describe_error(&e))?;
         for row in fk_rows {
             let table_name: String = row.get(0);
             let col_name: String = row.get(1);
@@ -257,13 +258,13 @@ impl DbAdapter for PostgresAdapter {
 
     async fn get_sample_rows(&self, table: &str, limit: Option<usize>) -> Result<RowSet, String> {
         let pool = self.get_pool().await?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| describe_error(&e))?;
 
         let limit_num = limit.unwrap_or(10) as i64;
         let safe_table = format!("\"{}\"", table.replace('"', "\"\""));
         let query = format!("SELECT * FROM {} LIMIT $1", safe_table);
 
-        let rows = client.query(&query, &[&limit_num]).await.map_err(|e| e.to_string())?;
+        let rows = client.query(&query, &[&limit_num]).await.map_err(|e| describe_error(&e))?;
 
         let columns = if !rows.is_empty() {
             rows[0].columns().iter().map(|c| c.name().to_string()).collect()
@@ -294,15 +295,15 @@ impl DbAdapter for PostgresAdapter {
         opts: Option<&QueryOptions>,
     ) -> Result<RowSet, String> {
         let pool = self.get_pool().await?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| describe_error(&e))?;
 
         let timeout_ms = opts.and_then(|o| o.timeout_ms).unwrap_or(DEFAULT_TIMEOUT_MS);
         let row_limit = opts.and_then(|o| o.row_limit).unwrap_or(DEFAULT_ROW_LIMIT);
 
         let timeout_sql = format!("SET statement_timeout TO {}", timeout_ms);
-        client.batch_execute(&timeout_sql).await.map_err(|e| e.to_string())?;
+        client.batch_execute(&timeout_sql).await.map_err(|e| describe_error(&e))?;
 
-        let rows = client.query(sql, &[]).await.map_err(|e| e.to_string())?;
+        let rows = client.query(sql, &[]).await.map_err(|e| describe_error(&e))?;
 
         let columns = if !rows.is_empty() {
             rows[0].columns().iter().map(|c| c.name().to_string()).collect()
@@ -329,10 +330,10 @@ impl DbAdapter for PostgresAdapter {
 
     async fn explain_query(&self, sql: &str) -> Result<String, String> {
         let pool = self.get_pool().await?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| describe_error(&e))?;
 
         let explain_sql = format!("EXPLAIN {}", sql);
-        let rows = client.query(&explain_sql, &[]).await.map_err(|e| e.to_string())?;
+        let rows = client.query(&explain_sql, &[]).await.map_err(|e| describe_error(&e))?;
 
         let mut lines = Vec::new();
         for row in rows {
@@ -345,7 +346,7 @@ impl DbAdapter for PostgresAdapter {
 
     async fn get_table_stats(&self, table: &str) -> Result<TableStats, String> {
         let pool = self.get_pool().await?;
-        let client = pool.get().await.map_err(|e| e.to_string())?;
+        let client = pool.get().await.map_err(|e| describe_error(&e))?;
 
         let stat_query = "
             SELECT

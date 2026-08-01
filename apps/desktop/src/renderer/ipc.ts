@@ -1,5 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ConnectionDTO, SchemaInfo, QueryOptions, RowSet, TableStats, AdapterType } from '@zebraa/core';
+import type {
+  ConnectionDTO,
+  SchemaInfo,
+  QueryOptions,
+  RowSet,
+  TableStats,
+  AdapterType,
+} from '@zebraa/core/types';
+import { validateConnectionConfig } from '@zebraa/core/validation';
 
 export interface NewConnectionInput {
   name: string;
@@ -9,6 +17,7 @@ export interface NewConnectionInput {
   database: string;
   username: string;
   password: string;
+  filepath?: string;
 }
 
 export interface IpcApi {
@@ -55,85 +64,162 @@ export const tauriIpc: IpcApi = {
 
 export const fallbackIpc: IpcApi = {
   connections: {
-    list: async () => [],
-    create: async (config) => ({
-      id: 'demo-1',
-      name: config.name,
-      type: config.type || 'postgres',
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      username: config.username,
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    }),
-    update: async (id, config) => ({
-      id,
-      name: config.name || 'Updated',
-      type: config.type || 'postgres',
-      host: config.host || 'localhost',
-      port: config.port || 5432,
-      database: config.database || 'zebraa',
-      username: config.username || 'postgres',
-      created_at: Date.now(),
-      updated_at: Date.now(),
-    }),
-    delete: async () => {},
-    test: async () => ({
-      ok: false,
-      error: 'IPC bridge is unavailable. Please run the app inside Desktop runtime.',
-    }),
+    list: async () => {
+      try {
+        return await tauriIpc.connections.list();
+      } catch {
+        return [];
+      }
+    },
+    create: async (config) => {
+      try {
+        return await tauriIpc.connections.create(config);
+      } catch {
+        return {
+          id: 'demo-1',
+          name: config.name,
+          type: config.type || 'postgres',
+          host: config.host,
+          port: config.port,
+          database: config.database,
+          username: config.username,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        };
+      }
+    },
+    update: async (id, config) => {
+      try {
+        return await tauriIpc.connections.update(id, config);
+      } catch {
+        return {
+          id,
+          name: config.name || 'Updated',
+          type: config.type || 'postgres',
+          host: config.host || 'localhost',
+          port: config.port || 5432,
+          database: config.database || 'zebraa',
+          username: config.username || 'postgres',
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        };
+      }
+    },
+    delete: async (id) => {
+      try {
+        return await tauriIpc.connections.delete(id);
+      } catch {}
+    },
+    test: async (config) => {
+      try {
+        return await tauriIpc.connections.test(config);
+      } catch (err) {
+        // A real backend failure must not be disguised as "browser preview mode".
+        if (isTauriEnvironment()) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+        const adapterType = config.type || 'postgres';
+        const connConfig = {
+          host: config.host,
+          port: config.port,
+          database: config.database || config.filepath,
+          username: config.username,
+          password: config.password,
+          filepath: config.filepath || config.database,
+        };
+
+        const validation = validateConnectionConfig(adapterType, connConfig);
+        if (!validation.valid) {
+          return { ok: false, error: validation.error };
+        }
+
+        return {
+          ok: false,
+          error: 'Direct database TCP socket connection is unavailable in web browser preview mode. Please run the desktop application (`pnpm dev`).',
+        };
+      }
+    },
   },
   schema: {
-    get: async () => ({ tables: [] }),
+    get: async (connectionId) => {
+      try {
+        return await tauriIpc.schema.get(connectionId);
+      } catch {
+        return { tables: [] };
+      }
+    },
   },
   query: {
-    execute: async () => ({ columns: [], rows: [], rowCount: 0 }),
-    explain: async () => 'Execution plan unavailable in browser preview',
+    execute: async (connectionId, sql, opts) => {
+      try {
+        return await tauriIpc.query.execute(connectionId, sql, opts);
+      } catch {
+        return { columns: [], rows: [], rowCount: 0 };
+      }
+    },
+    explain: async (connectionId, sql) => {
+      try {
+        return await tauriIpc.query.explain(connectionId, sql);
+      } catch {
+        return 'Execution plan unavailable in browser preview';
+      }
+    },
   },
   table: {
-    sample: async () => ({ columns: [], rows: [], rowCount: 0 }),
-    stats: async () => ({ estimatedRows: 0, sizeBytes: 0 }),
+    sample: async (connectionId, table, limit) => {
+      try {
+        return await tauriIpc.table.sample(connectionId, table, limit);
+      } catch {
+        return { columns: [], rows: [], rowCount: 0 };
+      }
+    },
+    stats: async (connectionId, table) => {
+      try {
+        return await tauriIpc.table.stats(connectionId, table);
+      } catch {
+        return { estimatedRows: 0, sizeBytes: 0 };
+      }
+    },
   },
 };
 
-export function getActiveIpc(): IpcApi {
-  if (typeof window === 'undefined') {
-    return fallbackIpc;
-  }
+export function isTauriEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    '__TAURI_INTERNALS__' in window ||
+    '__TAURI_IPC__' in window ||
+    '__TAURI__' in window ||
+    '__TAURI_PATTERN__' in window ||
+    Boolean((window as any).__TAURI_POST_MESSAGE__)
+  );
+}
 
-  // 1. Check if running inside Tauri environment
-  if ('__TAURI_INTERNALS__' in window || '__TAURI_IPC__' in window || '__TAURI__' in window) {
+export function getActiveIpc(): IpcApi {
+  if (isTauriEnvironment()) {
     return tauriIpc;
   }
-
-  // 2. Fallback for browser environment
   return fallbackIpc;
 }
 
-// Bind window.ipc safely once without re-assignment errors
+// NOTE: do NOT use `window.ipc` — in a Tauri/WKWebView window that name is owned by
+// Tauri's own IPC bridge (`window.ipc.postMessage`) and cannot be overridden.
+// Application code should call getActiveIpc(); this global exists for debugging only.
 if (typeof window !== 'undefined') {
-  const activeIpc = getActiveIpc();
   try {
-    if (window.ipc !== activeIpc) {
-      Object.defineProperty(window, 'ipc', {
-        value: activeIpc,
-        writable: true,
-        configurable: true,
-        enumerable: true,
-      });
-    }
+    Object.defineProperty(window, 'zebraaIpc', {
+      get() {
+        return getActiveIpc();
+      },
+      configurable: true,
+      enumerable: true,
+    });
   } catch (_err) {
-    try {
-      (window as any).ipc = activeIpc;
-    } catch (_err2) {
-      console.warn('Could not assign window.ipc directly:', _err2);
-    }
+    console.warn('Could not expose window.zebraaIpc:', _err);
   }
 }
 
 declare global {
   interface Window {
-    ipc: IpcApi;
+    zebraaIpc: IpcApi;
   }
 }
