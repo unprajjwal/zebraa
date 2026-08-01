@@ -295,6 +295,43 @@ h6 {
   font-weight: 600;
   font-size: 17px;
   letter-spacing: -0.01em;
+  -webkit-app-region: no-drag;
+}
+
+.topbar__brand-text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar__add-btn {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid rgba(255, 90, 31, 0.3);
+  font-size: 16px;
+  font-weight: 600;
+  font-style: normal;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.topbar__add-btn:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+  transform: scale(1.08);
+  box-shadow: 0 2px 10px rgba(255, 90, 31, 0.35);
+}
+
+.topbar__add-btn:active {
+  transform: scale(0.95);
 }
 
 .topbar__brand-mark {
@@ -1473,9 +1510,94 @@ h6 {
 }
 
 .db-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+/* Modal Window Overlay for Connections */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s var(--ease) both;
+}
+
+.modal-container {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  animation: modalScale 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-stripe);
+}
+
+.modal-title-group {
+  display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.modal-icon {
+  color: var(--accent);
+  font-size: 16px;
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.modal-close-btn:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .db-type-card {

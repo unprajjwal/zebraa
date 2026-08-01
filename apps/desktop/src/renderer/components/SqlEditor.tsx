@@ -1,8 +1,21 @@
 import React, { useRef, useState, useEffect } from 'react';
 
+import type { AdapterType } from '@zebraa/core';
+
 export interface SqlToken {
   text: string;
   type: 'keyword' | 'string' | 'number' | 'comment' | 'text';
+}
+
+function getPlaceholderForAdapter(type?: AdapterType): string {
+  switch (type) {
+    case 'redis':
+      return 'Enter Redis command (e.g. GET my_key or HGETALL user:100)';
+    case 'mongodb':
+      return 'Enter MongoDB query (e.g. db.users.find({ age: { $gte: 21 } }))';
+    default:
+      return 'Enter query or command (e.g. SELECT * FROM users;)';
+  }
 }
 
 const SQL_KEYWORDS = new Set([
@@ -109,6 +122,7 @@ interface SqlEditorProps {
   rowCount: number | null;
   elapsedMs: number | null;
   error: string | null;
+  adapterType?: AdapterType;
 }
 
 export default function SqlEditor({
@@ -120,6 +134,7 @@ export default function SqlEditor({
   rowCount,
   elapsedMs,
   error,
+  adapterType,
 }: SqlEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
@@ -226,7 +241,7 @@ export default function SqlEditor({
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onScroll={handleScroll}
-          placeholder="Enter SQL query (e.g. SELECT * FROM users;)"
+          placeholder={getPlaceholderForAdapter(adapterType)}
           spellCheck={false}
         />
       </div>

@@ -25,11 +25,11 @@ export default function AIPanel({ onCollapse }: AIPanelProps) {
         )}
       </div>
       <div className="aipanel__body">
-        <p className="aipanel__note">Ask questions about this database in plain English. Coming in phase 2:</p>
+        <p className="aipanel__note">Ask questions about your data store in plain English. Coming in phase 2:</p>
         <ul className="aipanel__list">
-          <li>Schema summarization</li>
-          <li>Natural language → SQL generation</li>
-          <li>Query result analysis</li>
+          <li>Schema & structure summarization</li>
+          <li>Natural language → Query generation</li>
+          <li>Data result analysis</li>
         </ul>
       </div>
     </>

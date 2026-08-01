@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { RowSet, SchemaInfo } from '@zebraa/core';
+import type { RowSet, SchemaInfo, AdapterType } from '@zebraa/core';
 import SqlEditor from './SqlEditor';
 import ResultsGrid from './ResultsGrid';
 import { getActiveIpc } from '../ipc';
@@ -18,13 +18,27 @@ export interface Tab {
 
 interface QueryWorkspaceProps {
   connectionId: string;
+  adapterType?: AdapterType;
   schema: SchemaInfo | null;
   openTableSignal?: { tableName: string; timestamp: number } | null;
   onRegisterOpenTable?: (fn: (tableName: string) => void) => void;
 }
 
+function getInitialSampleQuery(tableName: string, type?: AdapterType): string {
+  const escaped = tableName.replace(/"/g, '""');
+  switch (type) {
+    case 'redis':
+      return `HGETALL "${tableName}"`;
+    case 'mongodb':
+      return `db.${tableName}.find().limit(200)`;
+    default:
+      return `select * from "${escaped}" limit 200`;
+  }
+}
+
 export default function QueryWorkspace({
   connectionId,
+  adapterType,
   schema,
   openTableSignal,
   onRegisterOpenTable,
@@ -76,8 +90,7 @@ export default function QueryWorkspace({
   }
 
   function openTable(tableName: string) {
-    const escaped = tableName.replace(/"/g, '""');
-    const sampleSql = `select * from "${escaped}" limit 200`;
+    const sampleSql = getInitialSampleQuery(tableName, adapterType);
 
     setTabsByConnection((prev) => {
       const connTabs = prev[connectionId] || [];
@@ -300,9 +313,9 @@ export default function QueryWorkspace({
           type="button"
           className="qtab-bar__add-btn"
           onClick={createNewQueryTab}
-          title="New SQL query tab"
+          title="New query tab"
         >
-          + SQL
+          + Query
         </button>
       </div>
 
@@ -310,14 +323,14 @@ export default function QueryWorkspace({
       {currentTabs.length === 0 ? (
         <div className="workspace__empty">
           <div className="workspace__empty-text">
-            Pick a table to see its rows, or start a new query.
+            Pick a table, collection, or key to view data, or start a new query.
           </div>
           <button
             type="button"
             className="btn btn-primary workspace__empty-btn"
             onClick={createNewQueryTab}
           >
-            + SQL
+            + New Query
           </button>
         </div>
       ) : activeTab ? (
@@ -335,6 +348,7 @@ export default function QueryWorkspace({
               rowCount={activeTab.result ? activeTab.result.rowCount : null}
               elapsedMs={activeTab.elapsedMs}
               error={activeTab.error}
+              adapterType={adapterType}
             />
           </div>
 

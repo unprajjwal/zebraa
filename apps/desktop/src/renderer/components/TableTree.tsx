@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
-import type { SchemaInfo } from '@zebraa/core';
+import type { SchemaInfo, AdapterType } from '@zebraa/core';
 
 interface TableTreeProps {
   schema: SchemaInfo | null;
   loading: boolean;
   error: string | null;
   onOpenTable: (tableName: string) => void;
+  adapterType?: AdapterType;
 }
 
-export default function TableTree({ schema, loading, error, onOpenTable }: TableTreeProps) {
+function getSectionLabel(type?: AdapterType): string {
+  switch (type) {
+    case 'redis':
+      return 'Keys & Data Structures';
+    case 'mongodb':
+      return 'Collections';
+    default:
+      return 'Tables';
+  }
+}
+
+export default function TableTree({ schema, loading, error, onOpenTable, adapterType }: TableTreeProps) {
   const [expandedTables, setExpandedTables] = useState<Record<string, boolean>>({});
 
   function toggleTable(tableName: string) {
@@ -18,8 +30,10 @@ export default function TableTree({ schema, loading, error, onOpenTable }: Table
     }));
   }
 
+  const sectionLabel = getSectionLabel(adapterType);
+
   if (loading) {
-    return <div className="table-tree__empty">Loading tables…</div>;
+    return <div className="table-tree__empty">Loading data store schema…</div>;
   }
 
   if (error) {
@@ -27,13 +41,13 @@ export default function TableTree({ schema, loading, error, onOpenTable }: Table
   }
 
   if (!schema || schema.tables.length === 0) {
-    return <div className="table-tree__empty">No tables found</div>;
+    return <div className="table-tree__empty">No items found</div>;
   }
 
   return (
     <div className="table-tree">
       <div className="panel-heading">
-        <span>Tables</span>
+        <span>{sectionLabel}</span>
         <span className="table-tree__total-count">{schema.tables.length}</span>
       </div>
 

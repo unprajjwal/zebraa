@@ -69,6 +69,16 @@ export default function App() {
     };
   }, [selectedConnectionId]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && showAddForm) {
+        handleCancelAdd();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddForm]);
+
   async function loadConnections() {
     try {
       const list = await getActiveIpc().connections.list();
@@ -164,6 +174,9 @@ export default function App() {
     window.addEventListener('mouseup', onMouseUp);
   }
 
+  const selectedConnection = connections.find((c) => c.id === selectedConnectionId) || null;
+  const currentAdapterType = selectedConnection?.type;
+
   if (!entered) {
     return <WelcomeScreen onEnter={() => setEntered(true)} />;
   }
@@ -173,7 +186,16 @@ export default function App() {
       <div className="topbar">
         <div className="topbar__brand">
           <span className="topbar__brand-mark" aria-hidden="true" />
-          Zebraa
+          <span className="topbar__brand-text">Zebraa</span>
+          <button
+            type="button"
+            className="topbar__add-btn"
+            onClick={() => handleStartAdd()}
+            title="New Connection"
+            aria-label="New Connection"
+          >
+            +
+          </button>
         </div>
         <div className="topbar__right">
           <ThemeToggle />
@@ -231,38 +253,13 @@ export default function App() {
                   schema={schema}
                   loading={schemaLoading}
                   error={schemaError}
+                  adapterType={currentAdapterType}
                   onOpenTable={(tableName) =>
                     setOpenTableSignal({ tableName, timestamp: Date.now() })
                   }
                 />
               </div>
             )}
-
-            <div className="sidebar__footer">
-              {showAddForm ? (
-                addStep === 'select-type' ? (
-                  <DatabaseTypeSelector
-                    selectedType={selectedDbType}
-                    onSelectType={(type) => {
-                      setSelectedDbType(type);
-                      setAddStep('configure');
-                    }}
-                    onCancel={handleCancelAdd}
-                  />
-                ) : (
-                  <ConnectionForm
-                    initialType={selectedDbType}
-                    onBack={() => setAddStep('select-type')}
-                    onSubmit={handleAddConnection}
-                    onCancel={handleCancelAdd}
-                  />
-                )
-              ) : (
-                <button className="btn btn-primary" onClick={() => handleStartAdd()}>
-                  + Add connection
-                </button>
-              )}
-            </div>
           </div>
         )}
 
@@ -279,6 +276,7 @@ export default function App() {
           {selectedConnectionId ? (
             <QueryWorkspace
               connectionId={selectedConnectionId}
+              adapterType={currentAdapterType}
               schema={schema}
               openTableSignal={openTableSignal}
             />
@@ -286,7 +284,7 @@ export default function App() {
             <div className="empty-state">
               <div className="empty-state__title">No connection selected</div>
               <div className="empty-state__subtitle">
-                Select a database type to get started connecting to your database:
+                Select a database system to get started connecting to your data store:
               </div>
               <div className="empty-state__quick-cards">
                 <button
@@ -355,6 +353,55 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {showAddForm && (
+        <div
+          className="modal-overlay"
+          onClick={handleCancelAdd}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title-group">
+                <span className="modal-icon" aria-hidden="true">⚡</span>
+                <h2 id="modal-title" className="modal-title">
+                  {addStep === 'select-type' ? 'New Connection' : 'Configure Connection'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={handleCancelAdd}
+                title="Close (Esc)"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              {addStep === 'select-type' ? (
+                <DatabaseTypeSelector
+                  selectedType={selectedDbType}
+                  onSelectType={(type) => {
+                    setSelectedDbType(type);
+                    setAddStep('configure');
+                  }}
+                  onCancel={handleCancelAdd}
+                />
+              ) : (
+                <ConnectionForm
+                  initialType={selectedDbType}
+                  onBack={() => setAddStep('select-type')}
+                  onSubmit={handleAddConnection}
+                  onCancel={handleCancelAdd}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
